@@ -1,8 +1,8 @@
 // Dönem sonu karnesi (öğretmen paneli ve veli sayfası ortak kullanır)
-import { esc } from "./ui.js";
-import { SITE } from "./config.js";
-import { SKILLS } from "./defaults.js";
-import { avatarHtml, computeXP } from "./game.js";
+import { esc } from "./ui.js?v=5";
+import { SITE } from "./config.js?v=5";
+import { SKILLS } from "./defaults.js?v=5";
+import { avatarHtml, computeXP } from "./game.js?v=5";
 
 export const TERMS = () => {
   const now = new Date();

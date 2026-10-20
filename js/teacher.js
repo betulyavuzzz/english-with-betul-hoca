@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js";
-import { SITE } from "./config.js";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js";
-import { SEED_ASSIGNMENTS } from "./seed.js";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart } from "./game.js";
-import { SEED_WORDSETS } from "./seed.js";
-import { reportHtml, TERMS, currentTerm } from "./report.js";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=5";
+import { SITE } from "./config.js?v=5";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=5";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=5";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=5";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=5";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart } from "./game.js?v=5";
+import { SEED_WORDSETS } from "./seed.js?v=5";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=5";
 
 const app = $("#app");
 let settings, grade, view = "home";
