@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=5";
-import { SITE } from "./config.js?v=5";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=5";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=5";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=5";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=5";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart } from "./game.js?v=5";
-import { SEED_WORDSETS } from "./seed.js?v=5";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=5";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=6";
+import { SITE } from "./config.js?v=6";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=6";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=6";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=6";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=6";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart } from "./game.js?v=6";
+import { SEED_WORDSETS } from "./seed.js?v=6";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=6";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -164,7 +164,8 @@ function vHw(m) {
 }
 
 function importJson() {
-  const { el, close } = modal(`<h3>JSON ile ödev ekle</h3><p class="small muted">Claude'un hazırladığı ödev kodunu buraya yapıştırın. Birden fazla ödev de olabilir.</p><textarea id="js" rows="12" style="font-family:monospace;font-size:.8rem"></textarea><div class="err" id="je"></div><button class="btn gold" id="jo">Ekle</button>`);
+  const { el, close } = modal(`<h3>JSON ile ödev ekle</h3><p class="small muted">Claude'un hazırladığı ödev kodunu buraya yapıştırın. Birden fazla ödev de olabilir.</p><p class="small" style="margin:0 0 6px"><b>Dosya seç:</b> <input type="file" id="jf" accept=".json,application/json" style="width:auto"></p><p class="small muted" style="margin:0 0 6px">ya da kodu yapıştırın:</p><textarea id="js" rows="12" style="font-family:monospace;font-size:.8rem"></textarea><div class="err" id="je"></div><button class="btn gold" id="jo">Ekle</button>`);
+  el.querySelector("#jf").onchange = async (e) => { el.querySelector("#js").value = await e.target.files[0].text(); };
   el.querySelector("#jo").onclick = async () => {
     try {
       let d = JSON.parse(el.querySelector("#js").value);

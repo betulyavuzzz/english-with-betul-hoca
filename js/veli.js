@@ -1,9 +1,9 @@
 // Veli sayfası: çocuğun bilgileriyle giriş, salt okunur özet + karne
-import { api, isDemo, friendlyError } from "./api.js?v=5";
-import { SITE } from "./config.js?v=5";
-import { $, $$, esc, fmtDate, pctClass } from "./ui.js?v=5";
-import { avatarHtml, computeXP } from "./game.js?v=5";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=5";
+import { api, isDemo, friendlyError } from "./api.js?v=6";
+import { SITE } from "./config.js?v=6";
+import { $, $$, esc, fmtDate, pctClass } from "./ui.js?v=6";
+import { avatarHtml, computeXP } from "./game.js?v=6";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=6";
 
 const app = $("#app");
 let settings = await api.getSettings();
