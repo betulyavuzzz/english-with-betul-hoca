@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isTeacher() { return signedIn() && request.auth.token.email in ['betul-donmez@hotmail.com']; }
+    function isStudent() { return signedIn() && exists(/databases/$(database)/documents/students/$(request.auth.uid)); }
+    function me() { return get(/databases/$(database)/documents/students/$(request.auth.uid)).data; }
+
+    // Site ayarları: herkes okuyabilir (giriş ekranı için), sadece öğretmen değiştirir
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isTeacher();
+    }
+    // Öğrenci kayıtları: öğrenci sadece kendini görür
+    match /students/{uid} {
+      allow read: if isTeacher() || (signedIn() && request.auth.uid == uid);
+      allow write: if isTeacher();
+    }
+    // Ödevler: öğrenci sadece kendi sınıf düzeyindeki yayındaki ödevleri görür
+    match /assignments/{id} {
+      allow read: if isTeacher() || (isStudent() && resource.data.published == true && resource.data.grade == me().grade);
+      allow write: if isTeacher();
+    }
+    // Cevaplar: öğrenci kendi cevabını yazar, öğretmen puanını değiştiremez
+    match /submissions/{id} {
+      allow read: if isTeacher() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow write: if isTeacher();
+      allow create, update: if isStudent()
+        && request.resource.data.uid == request.auth.uid
+        && id == request.resource.data.assignmentId + '_' + request.auth.uid
+        && request.resource.data.get('writingPoints', null) == null;
+    }
+    // Geri bildirimler: öğrenci sadece kendisininkini okur
+    match /feedback/{id} {
+      allow read: if isTeacher() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow write: if isTeacher();
+    }
+  }
+}
