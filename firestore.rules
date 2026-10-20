@@ -60,10 +60,10 @@ service cloud.firestore {
       allow read: if isTeacher() || (signedIn() && request.auth.uid == uid);
       allow write: if isTeacher() || (isStudent() && request.auth.uid == uid && request.resource.data.uid == uid);
     }
-    // Haftanın yıldızları (öğretmen paneli yayınlar)
-    match /stars/{id} {
+    // Haftanın yıldızları: her öğrencinin haftalık XP kaydı
+    match /weekly/{id} {
       allow read: if signedIn();
-      allow write: if isTeacher();
+      allow write: if isTeacher() || (isStudent() && request.resource.data.uid == request.auth.uid && id == string(request.resource.data.grade) + request.resource.data.section + '_' + request.auth.uid);
     }
   }
 }

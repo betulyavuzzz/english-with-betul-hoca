@@ -1,10 +1,10 @@
-import { api, isDemo, friendlyError } from "./api.js?v=7";
-import { SITE } from "./config.js?v=7";
-import { SKILLS } from "./defaults.js?v=7";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=7";
-import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=7";
-import { AV_BASES, AV_BGS, AV_ACCS, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey } from "./game.js?v=7";
-import { wordsHome } from "./words.js?v=7";
+import { api, isDemo, friendlyError } from "./api.js?v=8";
+import { SITE } from "./config.js?v=8";
+import { SKILLS } from "./defaults.js?v=8";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=8";
+import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=8";
+import { AV_BASES, AV_BGS, AV_ACCS, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, weeklyEntry, weekKey, weekLabel } from "./game.js?v=8";
+import { wordsHome } from "./words.js?v=8";
 
 const app = $("#app");
 let settings = null;
@@ -88,10 +88,9 @@ async function loadMine() {
     api.listClassStats(me.grade).catch(() => []),
     api.listWordsets(me.grade, { publishedOnly: true }).catch(() => []),
     api.getPractice(me.uid).catch(() => null),
-    api.getStars(me.grade, me.section).catch(() => null)
+    Promise.resolve(null)
   ]);
-  wordsets = ws; practice = pr; stars = st;
-  if (stars?.list?.slice(0, 3).some((x) => x.uid === me.uid) && prof && !prof.wasStar) { prof.wasStar = true; api.saveProfile(prof).catch(() => {}); }
+  wordsets = ws; practice = pr;
   assignments = as.filter((a) => !a.sections?.length || a.sections.includes(me.section));
   subs = Object.fromEntries(ss.map((s) => [s.assignmentId, s]));
   feedback = fb.sort((a, b) => b.week - a.week);
@@ -99,6 +98,17 @@ async function loadMine() {
   profile = prof;
   classStats = cs;
   rememberMe();
+  await refreshStars();
+  if (stars?.list?.slice(0, 3).some((x) => x.uid === me.uid) && prof && !prof.wasStar) { prof.wasStar = true; api.saveProfile(prof).catch(() => {}); }
+}
+// Kendi haftalık XP kaydını yaz, sonra şubenin ilk 3'ünü oku
+async function refreshStars() {
+  try {
+    const e = weeklyEntry(me, profile?.avatar, { subs: Object.values(subs), points, practice });
+    if (e.xp > 0) await api.saveWeekly(e);
+    const list = (await api.listWeekly(me.grade, me.section, weekKey())).filter((x) => x.xp > 0).sort((a, b) => b.xp - a.xp).slice(0, 3);
+    stars = { label: weekLabel(), list };
+  } catch (err) { console.warn("Haftanın yıldızları alınamadı", err); stars = null; }
 }
 function rememberMe() {
   try {
@@ -380,6 +390,7 @@ function start(id) {
     try {
       await api.saveSubmission(sub);
       subs[id] = { ...prev, ...sub };
+      await refreshStars();
       resultScreen(a, r, lvBefore);
     } catch (e) {
       app.innerHTML = `<div class="card result"><div class="big">⚠️</div><h2>Kaydedilemedi</h2><p>${esc(friendlyError(e))}</p><button class="btn gold" id="retry">Tekrar dene</button></div>`;
@@ -444,5 +455,6 @@ async function onPlayed({ setId, mode, score }) {
   practice = p;
   try { await api.savePractice(p); } catch (e) { toast("Oyun kaydedilemedi: " + friendlyError(e), "bad"); }
   confetti();
+  refreshStars();
   if (xpNow().level > lvBefore) toast(`⬆️ LEVEL UP! Lv ${xpNow().level} · ${xpNow().name}`, "ok");
 }

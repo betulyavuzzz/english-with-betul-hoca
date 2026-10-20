@@ -1,5 +1,5 @@
 // Oyunlaştırma: avatar, XP, seviye, rozetler
-import { esc } from "./ui.js?v=7";
+import { esc } from "./ui.js?v=8";
 
 export const AV_BASES = ["🦊", "🐼", "🐯", "🦁", "🐸", "🐨", "🐰", "🐻", "🐵", "🦄", "🐧", "🐙", "🐶", "🐱", "🐲", "🦉", "🐬", "🦖", "🤖", "👽"];
 export const AV_BGS = [
@@ -66,4 +66,12 @@ export function weeklyXP({ subs = [], points = [], practice = null }, from = wee
   points.forEach((p) => { if ((p.at || 0) >= t) xp += (p.delta || 0) * 5; });
   Object.entries(practice?.log || {}).forEach(([k, n]) => { if (new Date(k + "T12:00:00").getTime() >= t) xp += Math.min(n, 10) * 2; });
   return Math.max(0, xp);
+}
+
+export const weekKey = () => dayKey(weekStart());
+export const weekLabel = () => { const a = weekStart(); const b = new Date(a); b.setDate(b.getDate() + 6); const f = (d) => d.toLocaleDateString("tr-TR", { day: "numeric", month: "long" }); return `${f(a)} – ${f(b)}`; };
+export const shortName = (n) => { const p = String(n).trim().split(/\s+/); return p.length > 1 ? `${p[0]} ${p[p.length - 1][0]}.` : p[0]; };
+// Haftalık sıralama kaydı (öğrenci kendi kaydını, öğretmen herkesinkini yazar)
+export function weeklyEntry(student, avatar, data) {
+  return { uid: student.uid, grade: student.grade, section: student.section, week: weekKey(), name: shortName(student.name), avatar: avatar || defaultAvatar(student.uid), xp: weeklyXP(data), updatedAt: Date.now() };
 }

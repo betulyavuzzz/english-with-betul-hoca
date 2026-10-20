@@ -1,5 +1,5 @@
 // Kelime kartları, hafıza oyunu, dinle-seç
-import { esc, shuffle, speak } from "./ui.js?v=7";
+import { esc, shuffle, speak } from "./ui.js?v=8";
 
 export function wordsHome(root, sets, practice, onPlayed, units = []) {
   if (!sets.length) { root.innerHTML = `<div class="card empty"><div class="big">🃏</div><p>Öğretmenin kelime seti ekleyince burada oyun oynayabileceksin.</p></div>`; return; }

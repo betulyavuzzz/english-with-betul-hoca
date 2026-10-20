@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=7";
-import { SITE } from "./config.js?v=7";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=7";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=7";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=7";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=7";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart } from "./game.js?v=7";
-import { SEED_WORDSETS } from "./seed.js?v=7";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=7";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=8";
+import { SITE } from "./config.js?v=8";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=8";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=8";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=8";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=8";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry } from "./game.js?v=8";
+import { SEED_WORDSETS } from "./seed.js?v=8";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=8";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -33,7 +33,7 @@ async function reload() {
     api.listProfiles(grade).catch(() => []), api.listPoints(grade).catch(() => [])
   ]);
   [wordsets, practices] = await Promise.all([api.listWordsets(grade).catch(() => []), api.listPractice(grade).catch(() => [])]);
-  publishStars().catch(() => {});
+  publishStars().catch((e) => console.warn("Haftanın yıldızları yazılamadı", e));
   profiles = Object.fromEntries(pr.map((p) => [p.uid, p.avatar]));
   students.sort((a, b) => a.section.localeCompare(b.section, "tr") || Number(a.no) - Number(b.no));
 }
@@ -473,6 +473,7 @@ function vClass(m) {
     </div>
     <p class="small muted" style="margin:0 0 10px">Öğrenciye dokunun, sebebi seçin. Öğrenci puanı ve XP'si anında kendi sayfasına yansır.</p>
     ${studs.length ? `<div class="cm-grid">${studs.map((s) => { const n = netOf(s.uid); return `<button class="cm-st ${cmSel.has(s.uid) ? "sel" : ""}" data-cm="${s.uid}"><span class="tot ${n > 0 ? "p" : n < 0 ? "m" : ""}">${n > 0 ? "+" : ""}${n}</span>${avatarHtml(avOf(s), 54)}<span class="nm">${esc(s.name.split(" ")[0])}<br><small class="muted">${s.no}</small></span></button>`; }).join("")}</div>` : `<div class="card empty"><p>Bu şubede öğrenci yok.</p></div>`}
+    <div style="margin-top:16px">${starsPreview()}</div>
     <div class="card" style="margin-top:16px"><h3>🏁 Şube yarışı</h3>${secTotals.map((x) => `<div class="race ${x.sec === secFilter ? "mine" : ""}"><b>${grade}-${x.sec}</b><div class="race-bar"><span style="width:${(Math.max(0, x.t) / Math.max(1, ...secTotals.map((y) => Math.abs(y.t)))) * 100}%"></span></div><b>${x.t}</b></div>`).join("")}</div>
     ${cmLog.length ? `<div class="card cm-log"><h3>Son işlemler</h3>${cmLog.slice(0, 8).map((p, i) => `<div class="pitem ${p.delta > 0 ? "plus" : "minus"}"><span class="pe">${esc(p.emoji)}</span><span style="flex:1">${esc(p.name)} · ${esc(p.reason)}</span><b>${p.delta > 0 ? "+" : ""}${p.delta}</b><button class="btn ghost sm" data-undo="${i}">Geri al</button></div>`).join("")}</div>` : ""}`;
   bindSec(() => { cmSel.clear(); vClass(m); });
@@ -509,6 +510,7 @@ async function give(list, delta, emoji, reason, m) {
       points.push(p); cmLog.unshift({ ...p, name: s.name.split(" ")[0] });
     }
     cmSel.clear(); cmSelect = false;
+    publishStars().catch((e) => console.warn(e));
     if (navigator.vibrate) navigator.vibrate(delta > 0 ? 40 : [30, 40, 30]);
     vClass(m);
     list.forEach((s) => { const t = document.querySelector(`[data-cm="${s.uid}"]`); if (t) t.classList.add(delta > 0 ? "flash-p" : "flash-m"); });
@@ -547,13 +549,11 @@ function computeStars(sec) {
 const weekLabel = () => { const a = weekStart(); const b = new Date(a); b.setDate(b.getDate() + 6); const f = (d) => d.toLocaleDateString("tr-TR", { day: "numeric", month: "long" }); return `${f(a)} – ${f(b)}`; };
 let starsCache = {};
 async function publishStars() {
-  for (const sec of sections()) {
-    const list = computeStars(sec);
-    const key = `${grade}${sec}`;
-    const sig = JSON.stringify(list.map((x) => [x.uid, x.xp])) + weekLabel();
-    if (starsCache[key] === sig) continue;
-    starsCache[key] = sig;
-    await api.saveStars({ id: key, grade, section: sec, label: weekLabel(), list, updatedAt: Date.now() });
+  for (const st of students) {
+    const e = weeklyEntry(st, profiles[st.uid], { subs: submissions.filter((x) => x.uid === st.uid), points: points.filter((p) => p.uid === st.uid), practice: practices.find((p) => p.uid === st.uid) });
+    if (!e.xp || starsCache[st.uid] === e.xp + e.week) continue;
+    starsCache[st.uid] = e.xp + e.week;
+    await api.saveWeekly(e);
   }
 }
 function starsPreview() {

@@ -1,9 +1,9 @@
 // =============================================================
 //  Veri katmanı: Firebase (gerçek) veya DEMO (tarayıcı içi)
 // =============================================================
-import { FIREBASE_CONFIG, TEACHER_EMAILS, STUDENT_DOMAIN, DEMO } from "./config.js?v=7";
-import { DEFAULT_SETTINGS } from "./defaults.js?v=7";
-import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js?v=7";
+import { FIREBASE_CONFIG, TEACHER_EMAILS, STUDENT_DOMAIN, DEMO } from "./config.js?v=8";
+import { DEFAULT_SETTINGS } from "./defaults.js?v=8";
+import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js?v=8";
 
 const PIN_PREFIX = "ewbh-";            // Firebase en az 6 karakter istiyor
 const TR = { "İ": "i", "I": "i", "ı": "i", "Ç": "c", "ç": "c", "Ğ": "g", "ğ": "g", "Ö": "o", "ö": "o", "Ş": "s", "ş": "s", "Ü": "u", "ü": "u" };
@@ -134,8 +134,8 @@ function demoBackend() {
     async getPractice(uid) { return load().practice[uid] || null; },
     async savePractice(p) { const d = load(); d.practice[p.uid] = p; save(d); },
     async listPractice(grade) { return Object.values(load().practice).filter((p) => p.grade === grade); },
-    async saveStars(st) { const d = load(); d.stars[st.id] = st; save(d); },
-    async getStars(grade, section) { return load().stars[`${grade}${section}`] || null; },
+    async saveWeekly(e) { const d = load(); d.weekly = d.weekly || {}; d.weekly[`${e.grade}${e.section}_${e.uid}`] = e; save(d); },
+    async listWeekly(grade, section, week) { return Object.values(load().weekly || {}).filter((e) => e.grade === grade && e.section === section && e.week === week); },
     async resetDemo() { try { localStorage.removeItem(KEY); } catch {} setSession(null); }
   };
 }
@@ -294,8 +294,8 @@ async function firebaseBackend() {
     async getPractice(uid) { const s = await getDoc(doc(db, "practice", uid)); return s.exists() ? s.data() : null; },
     async savePractice(p) { await setDoc(doc(db, "practice", p.uid), p); },
     async listPractice(grade) { return all(query(collection(db, "practice"), where("grade", "==", grade))); },
-    async saveStars(st) { await setDoc(doc(db, "stars", st.id), st); },
-    async getStars(grade, section) { const s = await getDoc(doc(db, "stars", `${grade}${section}`)); return s.exists() ? s.data() : null; }
+    async saveWeekly(e) { await setDoc(doc(db, "weekly", `${e.grade}${e.section}_${e.uid}`), e); },
+    async listWeekly(grade, section, week) { return all(query(collection(db, "weekly"), where("grade", "==", grade), where("section", "==", section), where("week", "==", week))); }
   };
 }
 
