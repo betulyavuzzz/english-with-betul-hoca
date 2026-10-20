@@ -50,5 +50,20 @@ service cloud.firestore {
       allow read: if signedIn();
       allow write: if isTeacher();
     }
+    // Kelime setleri
+    match /wordsets/{id} {
+      allow read: if isTeacher() || (isStudent() && resource.data.published == true && resource.data.grade == me().grade);
+      allow write: if isTeacher();
+    }
+    // Kelime oyunu ilerlemesi: öğrenci kendi kaydını yazar
+    match /practice/{uid} {
+      allow read: if isTeacher() || (signedIn() && request.auth.uid == uid);
+      allow write: if isTeacher() || (isStudent() && request.auth.uid == uid && request.resource.data.uid == uid);
+    }
+    // Haftanın yıldızları (öğretmen paneli yayınlar)
+    match /stars/{id} {
+      allow read: if signedIn();
+      allow write: if isTeacher();
+    }
   }
 }

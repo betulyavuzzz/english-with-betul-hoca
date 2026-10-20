@@ -3,13 +3,14 @@ import { SITE } from "./config.js";
 import { SKILLS } from "./defaults.js";
 import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js";
 import { play, computeResult, itemSummary, answerText, correctText } from "./player.js";
-import { AV_BASES, AV_BGS, AV_ACCS, avatarHtml, defaultAvatar, computeXP, LEVELS } from "./game.js";
+import { AV_BASES, AV_BGS, AV_ACCS, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey } from "./game.js";
+import { wordsHome } from "./words.js";
 
 const app = $("#app");
 let settings = null;
 let me = null;
 let profile = null;
-let assignments = [], subs = {}, feedback = [], points = [], classStats = [];
+let assignments = [], subs = {}, feedback = [], points = [], classStats = [], wordsets = [], practice = null, stars = null;
 let tab = "hw";
 
 if (isDemo) $("#demoBand").classList.remove("hidden");
@@ -78,14 +79,19 @@ function showLogin(orphan) {
 
 // ---------------------------------------------------------------- Veri
 async function loadMine() {
-  const [as, ss, fb, pts, prof, cs] = await Promise.all([
+  const [as, ss, fb, pts, prof, cs, ws, pr, st] = await Promise.all([
     api.listAssignments(me.grade, { publishedOnly: true }),
     api.mySubmissions(me.uid),
     api.myFeedback(me.uid),
     api.myPoints(me.uid).catch(() => []),
     api.getProfile(me.uid).catch(() => null),
-    api.listClassStats(me.grade).catch(() => [])
+    api.listClassStats(me.grade).catch(() => []),
+    api.listWordsets(me.grade, { publishedOnly: true }).catch(() => []),
+    api.getPractice(me.uid).catch(() => null),
+    api.getStars(me.grade, me.section).catch(() => null)
   ]);
+  wordsets = ws; practice = pr; stars = st;
+  if (stars?.list?.slice(0, 3).some((x) => x.uid === me.uid) && prof && !prof.wasStar) { prof.wasStar = true; api.saveProfile(prof).catch(() => {}); }
   assignments = as.filter((a) => !a.sections?.length || a.sections.includes(me.section));
   subs = Object.fromEntries(ss.map((s) => [s.assignmentId, s]));
   feedback = fb.sort((a, b) => b.week - a.week);
@@ -100,7 +106,7 @@ function rememberMe() {
     localStorage.setItem("ewbh-last", JSON.stringify({ ...s, name: me.name.split(" ")[0], av: profile?.avatar }));
   } catch {}
 }
-const xpNow = () => computeXP({ subs: Object.values(subs), points, feedback });
+const xpNow = () => computeXP({ subs: Object.values(subs), points, feedback, practice });
 const today = () => new Date().toISOString().slice(0, 10);
 const avg = (a) => (a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : 0);
 const scoreOf = (s) => s.best ?? s.percent;
@@ -128,6 +134,8 @@ function badgesFor() {
     { e: "⏰", n: "Dakik", d: "3 ödevi zamanında yap", on: onTime >= 3, c: "#7f7fd5" },
     { e: "🙋", n: "Söz Ustası", d: "Derste 10 artı puan al", on: plus >= 10, c: "#e63946" },
     { e: "🌟", n: "Öğretmenin Yıldızı", d: "Haftalık 5 yıldız al", on: feedback.some((f) => f.stars >= 5), c: "#ff7eb3" },
+    { e: "🃏", n: "Kelime Avcısı", d: "10 kelime oyunu oyna", on: (practice?.games || 0) >= 10, c: "#f3722c" },
+    { e: "🌟", n: "Haftanın Yıldızı", d: "Haftanın yıldızları arasına gir", on: !!stars?.list?.slice(0, 3).some((x) => x.uid === me.uid) || !!profile?.wasStar, c: "#c9a227" },
     { e: "🦸", n: "Hero", d: "6. seviyeye ulaş", on: lv >= 6, c: "#9d4edd" }
   ];
 }
@@ -195,6 +203,7 @@ function showHome() {
     </section>
     <nav class="tabs">
       <button class="tab" data-t="hw">📝 Ödevler</button>
+      <button class="tab" data-t="wd">🃏 Kelimeler</button>
       <button class="tab" data-t="pr">🚀 Gelişimim</button>
       <button class="tab" data-t="fb">💬 Geri bildirim</button>
       <button class="tab" data-t="bd">🏅 Rozetler</button>
@@ -208,13 +217,38 @@ function showHome() {
 function drawTab() {
   $$(".tab").forEach((b) => b.classList.toggle("on", b.dataset.t === tab));
   const body = $("#tabBody");
+  if (tab === "wd") return wordsHome(body, wordsets, practice, onPlayed, settings.units[me.grade] || []);
   body.innerHTML = ({ hw: hwList, pr: progressView, fb: fbView, bd: badgesView })[tab]();
   $$("[data-start]").forEach((b) => b.onclick = () => start(b.dataset.start));
   $$("[data-review]").forEach((b) => b.onclick = () => review(b.dataset.review));
 }
 
 const HW_COLORS = ["#ff6a88", "#4cc9f0", "#43aa8b", "#f6a04d", "#9d4edd", "#e63946", "#2b9348", "#7f7fd5"];
+function daysLeft(due) {
+  if (!due) return null;
+  const d = Math.round((new Date(due + "T00:00:00") - new Date(today() + "T00:00:00")) / 86400000);
+  return d;
+}
+function dueChip(a) {
+  const d = daysLeft(a.dueDate);
+  if (d == null) return "";
+  if (d === 0) return `<span class="due hot">🔥 Bugün son gün!</span>`;
+  if (d === 1) return `<span class="due warm">⏰ Yarın son gün</span>`;
+  if (d <= 3) return `<span class="due warm">⏳ ${d} gün kaldı</span>`;
+  return `<span class="due">📅 ${d} gün kaldı · ${fmtDate(a.dueDate)}</span>`;
+}
+function starsCard() {
+  if (!stars?.list?.length) return "";
+  return `<div class="stars-card"><div class="sc-head"><b>🌟 Haftanın Yıldızları · ${me.grade}-${me.section}</b><small>${esc(stars.label || "")}</small></div>
+    <div class="podium">${stars.list.slice(0, 3).map((x, i) => `<div class="pod p${i + 1} ${x.uid === me.uid ? "me" : ""}">${avatarHtml(x.avatar, i === 0 ? 70 : 56)}<b>${esc(x.name)}</b><span>${["🥇", "🥈", "🥉"][i]} ${x.xp} XP</span></div>`).join("")}</div>
+    ${stars.list.slice(0, 3).some((x) => x.uid === me.uid) ? `<p class="center" style="margin:8px 0 0;font-weight:800">Bu hafta sen de yıldızlar arasındasın! 🎉</p>` : `<p class="center small" style="margin:8px 0 0;opacity:.85">Ödev yap, kelime oyunu oyna, derste katıl; gelecek hafta sen de burada ol!</p>`}</div>`;
+}
 function hwList() {
+  const urgent = assignments.filter((a) => status(a).open && daysLeft(a.dueDate) != null && daysLeft(a.dueDate) <= 2);
+  const top = starsCard() + (urgent.length ? `<div class="remind">⏰ <div><b>Unutma!</b> ${urgent.map((a) => `"${esc(a.title)}" ${daysLeft(a.dueDate) === 0 ? "bugün" : daysLeft(a.dueDate) === 1 ? "yarın" : "2 gün sonra"}`).join(", ")} bitiyor.</div></div>` : "");
+  return top + hwListInner();
+}
+function hwListInner() {
   if (!assignments.length) return `<div class="card empty"><div class="big">📭</div><p>Henüz ödev yok. Öğretmenin ödev verince burada göreceksin.</p></div>`;
   const units = settings.units[me.grade] || [];
   const order = [...assignments].sort((a, b) => (status(a).done - status(b).done) || (b.week - a.week));
@@ -232,7 +266,7 @@ function hwList() {
       <div class="meta">
         <h3>${esc(a.title)}</h3>
         <p><span class="unit-chip" style="background:${col}">Ünite ${a.unit}</span> ${esc(units[a.unit - 1] || "")} · ${a.items.length} soru${a.week ? ` · ${a.week}. hafta` : ""}</p>
-        <p>${a.dueDate ? (st.late ? `<span class="badge late">Süresi geçti: ${fmtDate(a.dueDate)}</span>` : st.done ? "" : `⏳ Son gün: <b>${fmtDate(a.dueDate)}</b>`) : ""}
+        <p>${a.dueDate ? (st.late ? `<span class="badge late">Süresi geçti: ${fmtDate(a.dueDate)}</span>` : st.done ? "" : dueChip(a)) : ""}
         ${s && !s.writingGraded && s.writeTotal ? ` <span class="badge ok">Yazma kısmı puanlanıyor</span>` : ""}</p>
       </div>
       ${right}
@@ -268,7 +302,7 @@ function progressView() {
           <div class="xp-bar big"><span style="width:${(X.into / X.need) * 100}%"></span></div>
           <p class="small" style="margin:6px 0 0">Toplam <b>${X.xp} XP</b>${nextLv ? ` · <b>${nextLv}</b> olmana ${X.need - X.into} XP kaldı!` : " · En üst seviyedesin! 👑"}</p></div>
       </div>
-      <p class="small muted" style="margin:12px 0 0">💡 Her ödev +10 XP, başarı puanına göre +20 XP'ye kadar; derste aldığın her artı +5 XP, öğretmeninin verdiği her yıldız +3 XP.</p>
+      <p class="small muted" style="margin:12px 0 0">💡 Her ödev +10 XP, başarı puanına göre +20 XP'ye kadar; derste aldığın her artı +5 XP, öğretmeninin verdiği her yıldız +3 XP, her kelime oyunu +2 XP.</p>
     </div>
 
     <div class="tiles">
@@ -276,6 +310,7 @@ function progressView() {
       <div class="tile t2"><span>🎯</span><b>${pcts.length ? avg(pcts) : "–"}</b><small>ortalama puan</small></div>
       <div class="tile t3"><span>🔥</span><b>${streak}</b><small>ödev serisi</small></div>
       <div class="tile t4"><span>${missed ? "😬" : "🛡️"}</span><b>${missed}</b><small>kaçırılan ödev</small></div>
+      <div class="tile t5"><span>🎮</span><b>${practice?.games || 0}</b><small>kelime oyunu</small></div>
     </div>
 
     <div class="card"><h3>🗺️ Ödev yolculuğum</h3>
@@ -397,4 +432,17 @@ function confetti() {
   const bits = ["🎉", "⭐", "✨", "🎊", "💛", "🌟"];
   for (let i = 0; i < 36; i++) { const s = document.createElement("span"); s.textContent = bits[i % bits.length]; s.style.left = Math.random() * 100 + "%"; s.style.animationDelay = Math.random() * 0.8 + "s"; s.style.fontSize = 16 + Math.random() * 20 + "px"; box.appendChild(s); }
   document.body.appendChild(box); setTimeout(() => box.remove(), 3500);
+}
+
+async function onPlayed({ setId, mode, score }) {
+  const lvBefore = xpNow().level;
+  const p = practice || { uid: me.uid, grade: me.grade, section: me.section, games: 0, log: {}, best: {} };
+  p.games = (p.games || 0) + 1;
+  const k = dayKey(); p.log = { ...(p.log || {}), [k]: ((p.log || {})[k] || 0) + 1 };
+  const bk = `${setId}_${mode}`; p.best = { ...(p.best || {}), [bk]: Math.max(score, (p.best || {})[bk] ?? 0) };
+  p.updatedAt = Date.now();
+  practice = p;
+  try { await api.savePractice(p); } catch (e) { toast("Oyun kaydedilemedi: " + friendlyError(e), "bad"); }
+  confetti();
+  if (xpNow().level > lvBefore) toast(`⬆️ LEVEL UP! Lv ${xpNow().level} · ${xpNow().name}`, "ok");
 }

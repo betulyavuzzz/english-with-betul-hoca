@@ -3,7 +3,7 @@
 // =============================================================
 import { FIREBASE_CONFIG, TEACHER_EMAILS, STUDENT_DOMAIN, DEMO } from "./config.js";
 import { DEFAULT_SETTINGS } from "./defaults.js";
-import { SEED_ASSIGNMENTS } from "./seed.js";
+import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js";
 
 const PIN_PREFIX = "ewbh-";            // Firebase en az 6 karakter istiyor
 export const studentKey = (grade, section, no) => `${grade}${section}-${String(no).trim()}`.toLowerCase();
@@ -52,6 +52,8 @@ function demoBackend() {
       save(d);
     }
     d.profiles = d.profiles || {}; d.points = d.points || {}; d.classStats = d.classStats || {};
+    d.practice = d.practice || {}; d.stars = d.stars || {};
+    if (!d.wordsets) { d.wordsets = {}; SEED_WORDSETS.forEach((w, i) => (d.wordsets["ws-" + (i + 1)] = { ...structuredClone(w), id: "ws-" + (i + 1), published: true })); save(d); }
     return d;
   };
   const save = (d) => { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch {} };
@@ -124,6 +126,14 @@ function demoBackend() {
     async myPoints(uid) { return Object.values(load().points).filter((p) => p.uid === uid); },
     async listPoints(grade) { return Object.values(load().points).filter((p) => !grade || p.grade === grade); },
     async listClassStats(grade) { return Object.values(load().classStats).filter((c) => c.grade === grade); },
+    async listWordsets(grade, { publishedOnly = false } = {}) { return Object.values(load().wordsets).filter((w) => w.grade === grade && (!publishedOnly || w.published)).sort((a, b) => a.unit - b.unit); },
+    async saveWordset(w) { const d = load(); w.id = w.id || id(); d.wordsets[w.id] = w; save(d); return w.id; },
+    async deleteWordset(wid) { const d = load(); delete d.wordsets[wid]; save(d); },
+    async getPractice(uid) { return load().practice[uid] || null; },
+    async savePractice(p) { const d = load(); d.practice[p.uid] = p; save(d); },
+    async listPractice(grade) { return Object.values(load().practice).filter((p) => p.grade === grade); },
+    async saveStars(st) { const d = load(); d.stars[st.id] = st; save(d); },
+    async getStars(grade, section) { return load().stars[`${grade}${section}`] || null; },
     async resetDemo() { try { localStorage.removeItem(KEY); } catch {} setSession(null); }
   };
 }
@@ -270,7 +280,19 @@ async function firebaseBackend() {
     },
     async myPoints(uid) { return all(query(collection(db, "points"), where("uid", "==", uid))); },
     async listPoints(grade) { return all(query(collection(db, "points"), where("grade", "==", grade))); },
-    async listClassStats(grade) { return all(query(collection(db, "classStats"), where("grade", "==", grade))); }
+    async listClassStats(grade) { return all(query(collection(db, "classStats"), where("grade", "==", grade))); },
+    async listWordsets(grade, { publishedOnly = false } = {}) {
+      const cs = [collection(db, "wordsets"), where("grade", "==", grade)];
+      if (publishedOnly) cs.push(where("published", "==", true));
+      return (await all(query(...cs))).sort((a, b) => a.unit - b.unit);
+    },
+    async saveWordset(w) { const ref = w.id ? doc(db, "wordsets", w.id) : doc(collection(db, "wordsets")); await setDoc(ref, { ...w, id: ref.id }); return ref.id; },
+    async deleteWordset(id) { await deleteDoc(doc(db, "wordsets", id)); },
+    async getPractice(uid) { const s = await getDoc(doc(db, "practice", uid)); return s.exists() ? s.data() : null; },
+    async savePractice(p) { await setDoc(doc(db, "practice", p.uid), p); },
+    async listPractice(grade) { return all(query(collection(db, "practice"), where("grade", "==", grade))); },
+    async saveStars(st) { await setDoc(doc(db, "stars", st.id), st); },
+    async getStars(grade, section) { const s = await getDoc(doc(db, "stars", `${grade}${section}`)); return s.exists() ? s.data() : null; }
   };
 }
 

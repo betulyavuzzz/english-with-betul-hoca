@@ -4,11 +4,13 @@ import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js";
 import { SEED_ASSIGNMENTS } from "./seed.js";
 import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js";
 import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP } from "./game.js";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart } from "./game.js";
+import { SEED_WORDSETS } from "./seed.js";
+import { reportHtml, TERMS, currentTerm } from "./report.js";
 
 const app = $("#app");
 let settings, grade, view = "home";
-let students = [], assignments = [], submissions = [], feedback = [], profiles = {}, points = [];
+let students = [], assignments = [], submissions = [], feedback = [], profiles = {}, points = [], wordsets = [], practices = [];
 let secFilter = "";
 
 if (isDemo) $("#demoBand").classList.remove("hidden");
@@ -30,6 +32,8 @@ async function reload() {
     api.listStudents(grade), api.listAssignments(grade), api.listSubmissions(grade), api.listFeedback(grade),
     api.listProfiles(grade).catch(() => []), api.listPoints(grade).catch(() => [])
   ]);
+  [wordsets, practices] = await Promise.all([api.listWordsets(grade).catch(() => []), api.listPractice(grade).catch(() => [])]);
+  publishStars().catch(() => {});
   profiles = Object.fromEntries(pr.map((p) => [p.uid, p.avatar]));
   students.sort((a, b) => a.section.localeCompare(b.section, "tr") || Number(a.no) - Number(b.no));
 }
@@ -54,7 +58,7 @@ function login() {
 }
 
 // ---------------------------------------------------------------- İskelet
-const NAV = [["home", "🏠", "Genel bakış"], ["cls", "📱", "Sınıf modu"], ["hw", "📝", "Ödevler"], ["res", "📊", "Sonuçlar"], ["fb", "💬", "Geri bildirim"], ["gb", "📒", "Not defteri"], ["st", "👥", "Öğrenciler"], ["set", "⚙️", "Ayarlar"]];
+const NAV = [["home", "🏠", "Genel bakış"], ["cls", "📱", "Sınıf modu"], ["wd", "🃏", "Kelimeler"], ["hw", "📝", "Ödevler"], ["res", "📊", "Sonuçlar"], ["fb", "💬", "Geri bildirim"], ["gb", "📒", "Not defteri"], ["kr", "📄", "Karneler"], ["st", "👥", "Öğrenciler"], ["set", "⚙️", "Ayarlar"]];
 function shell() {
   app.innerHTML = `<div class="tlayout"><nav class="side">
       <div class="gsel"><select id="gs">${[5, 6, 7, 8].map((g) => `<option value="${g}" ${g === grade ? "selected" : ""}>${g}. sınıflar${settings.activeGrades.includes(g) ? "" : " (kapalı)"}</option>`).join("")}</select></div>
@@ -67,7 +71,7 @@ function shell() {
 function draw() {
   $$(".side [data-v]").forEach((b) => b.classList.toggle("on", b.dataset.v === view));
   const m = $("#main");
-  ({ home: vHome, cls: vClass, hw: vHw, res: vRes, fb: vFb, gb: vGb, st: vSt, set: vSet })[view](m);
+  ({ home: vHome, cls: vClass, wd: vWords, kr: vReports, hw: vHw, res: vRes, fb: vFb, gb: vGb, st: vSt, set: vSet })[view](m);
   window.scrollTo(0, 0);
 }
 const sections = () => settings.sections[grade] || [];
@@ -100,10 +104,11 @@ function vHome(m) {
     }).join("");
     lastRow = `<div class="card"><div class="row between"><h3 style="margin:0">Son ödev: ${esc(last.title)}</h3><span class="muted small">${last.dueDate ? "Son gün " + fmtDate(last.dueDate) : ""}</span></div>
       <div class="tbl-wrap" style="margin-top:12px"><table class="tbl"><tr><th>Şube</th><th>Tamamlama</th><th class="c">Yapan</th><th class="c">Ortalama</th></tr>${bySec}</table></div></div>
-      <div class="card"><div class="row between"><h3 style="margin:0">Yapmayanlar (${missing.length})</h3><button class="btn ghost sm" id="cp">📋 Listeyi kopyala</button></div>
+      <div class="card"><div class="row between"><h3 style="margin:0">Yapmayanlar (${missing.length})</h3><span class="row"><button class="btn ghost sm" id="cp">📋 Kopyala</button><button class="btn ghost sm" id="wa">📲 WhatsApp</button></span></div>
       <p class="muted small">Kopyalayıp sınıf WhatsApp grubuna atabilirsiniz.</p>
       <div>${missing.length ? missing.map((s) => `<span class="badge" style="margin:3px">${s.section}·${s.no} ${esc(s.name)}</span>`).join("") : "Herkes yaptı 🎉"}</div></div>`;
-    setTimeout(() => { const b = $("#cp"); if (b) b.onclick = () => { navigator.clipboard?.writeText(`📝 "${last.title}" ödevini henüz yapmayanlar:\n` + missing.map((s) => `• ${grade}-${s.section} ${s.no} ${s.name}`).join("\n")); toast("Kopyalandı", "ok"); }; });
+    const missTxt = `📝 "${last.title}" ödevini henüz yapmayanlar:\n` + missing.map((s) => `• ${grade}-${s.section} ${s.no} ${s.name}`).join("\n") + (last.dueDate ? `\n\n⏰ Son gün: ${fmtDate(last.dueDate)}` : "") + `\n🔗 ${siteUrl()}`;
+    setTimeout(() => { const b = $("#cp"); if (b) b.onclick = () => { navigator.clipboard?.writeText(missTxt); toast("Kopyalandı", "ok"); }; const w = $("#wa"); if (w) w.onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(missTxt), "_blank"); });
     void done;
   }
   const allP = submissions.filter((s) => studs.some((x) => x.uid === s.uid)).map(best);
@@ -117,7 +122,7 @@ function vHome(m) {
     </div>
     ${!students.length ? `<div class="card empty"><div class="big">👥</div><p>Önce öğrencileri ekleyin.</p><button class="btn gold" onclick="document.querySelector('[data-v=st]').click()">Öğrenci ekle</button></div>` : ""}
     ${!assignments.length ? `<div class="card empty"><div class="big">📝</div><p>Henüz ödev yok.</p><button class="btn gold" onclick="document.querySelector('[data-v=hw]').click()">Ödev ekle</button></div>` : ""}
-    <div class="grid">${lastRow}${skillCard(studs)}</div>`;
+    <div class="grid">${starsPreview()}${lastRow}${skillCard(studs)}</div>`;
   bindSec(() => vHome(m));
 }
 function skillCard(studs) {
@@ -141,7 +146,7 @@ function vHw(m) {
         <td class="c">${a.week || "–"}</td><td><b>${esc(a.title)}</b><br><span class="small muted">${a.items.length} soru</span></td><td class="small">${a.unit}. ${esc(unitName(a.unit))}</td>
         <td class="small">${a.sections?.length ? a.sections.join(", ") : "Hepsi"}</td><td class="small">${a.dueDate ? fmtDate(a.dueDate) : "–"}</td><td class="c">${n}/${t}</td>
         <td class="c"><button class="btn sm ${a.published ? "" : "ghost"}" data-pub="${a.id}">${a.published ? "Yayında" : "Taslak"}</button></td>
-        <td><button class="btn ghost sm" data-pv="${a.id}">👁</button> <button class="btn ghost sm" data-ed="${a.id}">✏️</button> <button class="btn ghost sm" data-cp="${a.id}">⧉</button> <button class="btn ghost sm" data-del="${a.id}">🗑</button></td></tr>`; }).join("")}
+        <td><button class="btn ghost sm" data-msg="${a.id}" title="Duyuru / hatırlatma mesajı">📣</button> <button class="btn ghost sm" data-pv="${a.id}">👁</button> <button class="btn ghost sm" data-ed="${a.id}">✏️</button> <button class="btn ghost sm" data-cp="${a.id}">⧉</button> <button class="btn ghost sm" data-del="${a.id}">🗑</button></td></tr>`; }).join("")}
     </table></div>` : `<div class="card empty"><div class="big">📝</div><p>Henüz ödev yok. "Yeni ödev" ile başlayın${grade === 5 ? " ya da hazır ödevi yükleyin" : ""}.</p></div>`}
     <p class="small muted">"Taslak" ödevleri öğrenciler görmez. Yayına almak için düğmeye basın.</p>`;
   $("#nw").onclick = () => editor({ grade, unit: settings.currentUnit[grade] || 1, week: (Math.max(0, ...assignments.map((a) => a.week || 0)) + 1), title: "", description: "", sections: [], dueDate: "", attempts: settings.defaultAttempts, items: [], published: false });
@@ -154,6 +159,7 @@ function vHw(m) {
   $$("[data-ed]").forEach((b) => b.onclick = () => editor(structuredClone(assignments.find((x) => x.id === b.dataset.ed))));
   $$("[data-cp]").forEach((b) => b.onclick = () => { const a = structuredClone(assignments.find((x) => x.id === b.dataset.cp)); delete a.id; delete a.createdAt; a.title += " (kopya)"; a.published = false; editor(a); });
   $$("[data-pv]").forEach((b) => b.onclick = () => preview(assignments.find((x) => x.id === b.dataset.pv)));
+  $$("[data-msg]").forEach((b) => b.onclick = () => messages(assignments.find((x) => x.id === b.dataset.msg)));
   $$("[data-del]").forEach((b) => b.onclick = async () => { if (!confirm("Bu ödev silinsin mi? Öğrenci cevapları kalır ama ödev listeden kalkar.")) return; await api.deleteAssignment(b.dataset.del); await reload(); vHw(m); });
 }
 
@@ -384,7 +390,7 @@ function vSt(m) {
   $("#add").onclick = addStudents;
   $("#cards").onclick = () => {
     const { el } = modal(`<div class="noprint row between"><h3>Şifre kartları ${secFilter ? grade + "-" + secFilter : ""}</h3><button class="btn gold" id="pp">Yazdır</button></div>
-      <p class="noprint small muted">Keserek öğrencilere dağıtın.</p><div class="pincards">${studs.map((s) => `<div class="pincard"><b>${SITE.name}</b><br>${esc(s.name)}<br>Sınıf: <b>${grade}-${s.section}</b> · No: <b>${s.no}</b><br>Şifre: <span class="pin">${s.pin}</span><br><span class="small">Adres: ${esc(location.origin + location.pathname.replace(/ogretmen\.html$/, ""))}</span></div>`).join("")}</div>`, { wide: true });
+      <p class="noprint small muted">Keserek öğrencilere dağıtın.</p><div class="pincards">${studs.map((s) => `<div class="pincard"><b>${SITE.name}</b><br>${esc(s.name)}<br>Sınıf: <b>${grade}-${s.section}</b> · No: <b>${s.no}</b><br>Şifre: <span class="pin">${s.pin}</span><br><span class="small">🔗 ${esc(siteUrl())}</span><br><span class="small">👪 Veli: ${esc(siteUrl())}veli.html (aynı bilgilerle)</span></div>`).join("")}</div>`, { wide: true });
     el.querySelector("#pp").onclick = () => { document.body.classList.add("printing"); window.print(); document.body.classList.remove("printing"); };
   };
   $$("[data-rp]").forEach((b) => b.onclick = async () => {
@@ -523,4 +529,98 @@ function randomPick(studs) {
   };
   el.querySelector("#again").onclick = spin; el.querySelector("#ok").onclick = close;
   spin();
+}
+
+// ---------------------------------------------------------------- Yardımcılar
+function siteUrl() { return location.origin + location.pathname.replace(/ogretmen\.html.*$/, ""); }
+const shortName = (n) => { const p = n.trim().split(/\s+/); return p.length > 1 ? `${p[0]} ${p[p.length - 1][0]}.` : p[0]; };
+
+// ---------------------------------------------------------------- Haftanın yıldızları (otomatik)
+function computeStars(sec) {
+  return students.filter((s) => s.section === sec).map((s) => ({
+    uid: s.uid, name: shortName(s.name), avatar: profiles[s.uid] || defaultAvatar(s.uid),
+    xp: weeklyXP({ subs: submissions.filter((x) => x.uid === s.uid), points: points.filter((p) => p.uid === s.uid), practice: practices.find((p) => p.uid === s.uid) })
+  })).filter((x) => x.xp > 0).sort((a, b) => b.xp - a.xp).slice(0, 3);
+}
+const weekLabel = () => { const a = weekStart(); const b = new Date(a); b.setDate(b.getDate() + 6); const f = (d) => d.toLocaleDateString("tr-TR", { day: "numeric", month: "long" }); return `${f(a)} – ${f(b)}`; };
+let starsCache = {};
+async function publishStars() {
+  for (const sec of sections()) {
+    const list = computeStars(sec);
+    const key = `${grade}${sec}`;
+    const sig = JSON.stringify(list.map((x) => [x.uid, x.xp])) + weekLabel();
+    if (starsCache[key] === sig) continue;
+    starsCache[key] = sig;
+    await api.saveStars({ id: key, grade, section: sec, label: weekLabel(), list, updatedAt: Date.now() });
+  }
+}
+function starsPreview() {
+  const secs = sections().map((sec) => ({ sec, list: computeStars(sec) })).filter((x) => x.list.length);
+  if (!secs.length) return "";
+  return `<div class="card"><h3>🌟 Haftanın yıldızları <span class="muted small">(${weekLabel()})</span></h3><p class="small muted" style="margin-top:-6px">Bu hafta en çok XP kazananlar. Öğrenci sayfalarında otomatik görünür.</p>
+    <div class="grid g3">${secs.map((x) => `<div><b>${grade}-${x.sec}</b>${x.list.map((s, i) => `<div class="row" style="margin-top:6px;gap:8px">${["🥇", "🥈", "🥉"][i]} ${avatarHtml(s.avatar, 30)} <span>${esc(s.name)}</span> <span class="muted small">${s.xp} XP</span></div>`).join("")}</div>`).join("")}</div></div>`;
+}
+
+// ---------------------------------------------------------------- Mesaj şablonları (WhatsApp)
+function messages(a) {
+  const target = students.filter((s) => forSec(a, s.section));
+  const missing = target.filter((s) => !subOf(a.id, s.uid));
+  const due = a.dueDate ? fmtDate(a.dueDate) : "";
+  const T = [
+    ["📢 Yeni ödev duyurusu", `Merhaba sevgili ${grade}. sınıflar! 👋\n\n📝 Yeni İngilizce ödeviniz: "${a.title}"\n📚 Ünite ${a.unit}: ${unitName(a.unit)} · ${a.items.length} soru${due ? `\n⏰ Son gün: ${due}` : ""}\n\n🔗 ${siteUrl()}\nOkul numaranız ve şifrenizle giriş yapabilirsiniz. Kolay gelsin! 🌟\n\n${SITE.teacher}`],
+    ["⏰ Hatırlatma", `Hatırlatma ⏰\n\n"${a.title}" ödevinin ${due ? `son günü ${due}` : "süresi yaklaşıyor"}. Henüz yapmayan arkadaşlarımız unutmasın! 💪\n\n🔗 ${siteUrl()}`],
+    ["📋 Yapmayanlar listesi", `📝 "${a.title}" ödevini henüz yapmayanlar (${missing.length}):\n${missing.map((s) => `• ${grade}-${s.section} ${s.no} ${s.name}`).join("\n") || "Herkes yaptı 🎉"}\n\n🔗 ${siteUrl()}`],
+    ["👪 Veli bilgilendirme", `Sayın velilerimiz,\n\nİngilizce dersi için çocuklarımıza "${a.title}" ödevi verilmiştir.${due ? ` Son gün: ${due}.` : ""}\n\nÇocuğunuzun ödev durumunu, puanlarını ve öğretmen notlarını ${siteUrl()}veli.html adresinden, çocuğunuzun okul numarası ve şifresiyle görebilirsiniz.\n\nSaygılarımla,\n${SITE.teacher}\nİngilizce Öğretmeni`]
+  ];
+  const { el } = modal(`<h3>📣 Mesajlar · ${esc(a.title)}</h3><p class="small muted">Metni düzenleyip kopyalayabilir ya da doğrudan WhatsApp'ta açabilirsiniz.</p>
+    ${T.map(([t, m], i) => `<div class="item-ed"><div class="row between"><b>${t}</b><span class="row"><button class="btn ghost sm" data-copy="${i}">📋 Kopyala</button><button class="btn sm" data-wa="${i}" style="background:#25d366">📲 WhatsApp</button></span></div><textarea rows="5" data-t="${i}" style="margin-top:8px;font-size:.88rem">${esc(m)}</textarea></div>`).join("")}`, { wide: true });
+  el.querySelectorAll("[data-copy]").forEach((b) => b.onclick = () => { navigator.clipboard?.writeText(el.querySelector(`[data-t="${b.dataset.copy}"]`).value); toast("Kopyalandı", "ok"); });
+  el.querySelectorAll("[data-wa]").forEach((b) => b.onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(el.querySelector(`[data-t="${b.dataset.wa}"]`).value), "_blank"));
+}
+
+// ---------------------------------------------------------------- Kelime setleri
+function vWords(m) {
+  m.innerHTML = `<div class="row between"><h2>🃏 ${grade}. sınıf kelime setleri</h2><div class="row">${grade === 5 ? `<button class="btn ghost sm" id="wseed">⭐ Hazır setleri yükle</button>` : ""}<button class="btn gold" id="wnew">+ Yeni set</button></div></div>
+    <p class="small muted">Öğrenciler yayındaki setlerle kartlar, hafıza oyunu ve dinle-seç oyunu oynar. Her oyun +2 XP kazandırır.</p>
+    ${wordsets.length ? `<div class="tbl-wrap"><table class="tbl"><tr><th>Ünite</th><th>Set</th><th class="c">Kelime</th><th class="c">Durum</th><th></th></tr>${wordsets.map((w) => `<tr><td>${w.unit}. ${esc(unitName(w.unit))}</td><td><b>${esc(w.title)}</b><br><span class="small muted">${esc(w.words.slice(0, 6).map((x) => x.en).join(", "))}…</span></td><td class="c">${w.words.length}</td>
+      <td class="c"><button class="btn sm ${w.published ? "" : "ghost"}" data-wpub="${w.id}">${w.published ? "Yayında" : "Taslak"}</button></td><td><button class="btn ghost sm" data-wed="${w.id}">✏️</button> <button class="btn ghost sm" data-wdel="${w.id}">🗑</button></td></tr>`).join("")}</table></div>` : `<div class="card empty"><div class="big">🃏</div><p>Henüz kelime seti yok.</p></div>`}
+    <div class="card" style="margin-top:16px"><h3>👀 Öğrencilerin kelime oyunu kullanımı</h3>${practices.length ? `<div class="tbl-wrap"><table class="tbl"><tr><th>Öğrenci</th><th class="c">Toplam oyun</th><th class="c">Bu hafta</th></tr>${practices.sort((a, b) => (b.games || 0) - (a.games || 0)).map((p) => { const st = students.find((x) => x.uid === p.uid); if (!st) return ""; const wk = Object.entries(p.log || {}).filter(([k]) => new Date(k + "T12:00") >= weekStart()).reduce((x, [, n]) => x + n, 0); return `<tr><td>${st.section}·${st.no} ${esc(st.name)}</td><td class="c">${p.games || 0}</td><td class="c">${wk}</td></tr>`; }).join("")}</table></div>` : `<p class="muted small">Henüz oyun oynanmadı.</p>`}</div>`;
+  if ($("#wseed")) $("#wseed").onclick = async () => { for (const w of SEED_WORDSETS) if (w.grade === grade && !wordsets.some((x) => x.title === w.title)) await api.saveWordset({ ...structuredClone(w), published: true }); await reload(); vWords(m); toast("Hazır setler eklendi", "ok"); };
+  $("#wnew").onclick = () => wordEditor({ grade, unit: settings.currentUnit[grade] || 1, title: "", words: [], published: true });
+  $$("[data-wed]").forEach((b) => b.onclick = () => wordEditor(structuredClone(wordsets.find((x) => x.id === b.dataset.wed))));
+  $$("[data-wpub]").forEach((b) => b.onclick = async () => { const w = wordsets.find((x) => x.id === b.dataset.wpub); w.published = !w.published; await api.saveWordset(w); vWords(m); });
+  $$("[data-wdel]").forEach((b) => b.onclick = async () => { if (!confirm("Set silinsin mi?")) return; await api.deleteWordset(b.dataset.wdel); await reload(); vWords(m); });
+}
+function wordEditor(w) {
+  const units = settings.units[grade] || [];
+  const { el, close } = modal(`<h3>${w.id ? "Seti düzenle" : "Yeni kelime seti"}</h3>
+    <div class="field"><label>Başlık</label><input type="text" id="wt" value="${esc(w.title)}" placeholder="Örn. Family Life — Family Members"></div>
+    <div class="field"><label>Ünite</label><select id="wu">${units.map((n, k) => `<option value="${k + 1}" ${w.unit === k + 1 ? "selected" : ""}>${k + 1}. ${esc(n)}</option>`).join("")}</select></div>
+    <div class="field"><label>Kelimeler <span class="muted small">(her satıra: İngilizce = Türkçe = emoji)</span></label>
+      <textarea id="ww" rows="12" placeholder="mother = anne = 👩&#10;father = baba = 👨&#10;sister = kız kardeş = 👧">${esc(w.words.map((x) => `${x.en} = ${x.tr}${x.e ? " = " + x.e : ""}`).join("\n"))}</textarea></div>
+    <div class="err" id="we"></div><button class="btn gold" id="wsv">Kaydet</button>`);
+  el.querySelector("#wsv").onclick = async () => {
+    w.title = el.querySelector("#wt").value.trim(); w.unit = Number(el.querySelector("#wu").value);
+    w.words = el.querySelector("#ww").value.split("\n").map((l) => l.split("=").map((x) => x.trim())).filter((p) => p[0] && p[1]).map(([en, tr, e]) => ({ en, tr, e: e || "" }));
+    if (!w.title) return (el.querySelector("#we").textContent = "Başlık yazın.");
+    if (w.words.length < 4) return (el.querySelector("#we").textContent = "En az 4 kelime girin (hafıza oyunu için).");
+    await api.saveWordset(w); close(); await reload(); vWords($("#main")); toast("Set kaydedildi", "ok");
+  };
+}
+
+// ---------------------------------------------------------------- Karneler
+let krTerm = currentTerm();
+function vReports(m) {
+  if (!secFilter && sections().length) secFilter = sections()[0];
+  const term = TERMS().find((t) => t.key === krTerm);
+  const studs = visStudents();
+  m.innerHTML = `<div class="row between noprint"><h2>📄 Dönem sonu karneleri</h2><div class="row">${secSelect("sf", "Tüm şubeler")}
+      <select id="kt" style="width:auto">${TERMS().map((t) => `<option value="${t.key}" ${t.key === krTerm ? "selected" : ""}>${t.label}</option>`).join("")}</select>
+      <button class="btn gold" id="kp">🖨 Hepsini yazdır / PDF</button></div></div>
+    <p class="small muted noprint">Her öğrenci için ödevler, beceri analizi, ders içi puanlar ve not defterinden otomatik hazırlanır. "Öğretmen görüşü" kendiliğinden yazılır; yazdırmadan önce üzerine tıklayıp düzenleyebilirsiniz. Veliler aynı karneyi veli sayfasından da görebilir.</p>
+    <div id="karneler">${studs.map((s) => reportHtml({ student: s, avatar: profiles[s.uid], settings, term, assignments, subs: submissions.filter((x) => x.uid === s.uid), points: points.filter((p) => p.uid === s.uid), feedback: feedback.filter((f) => f.uid === s.uid), practice: practices.find((p) => p.uid === s.uid) })).join("") || `<div class="card empty"><p>Öğrenci yok.</p></div>`}</div>`;
+  bindSec(() => vReports(m));
+  $("#kt").onchange = (e) => { krTerm = e.target.value; vReports(m); };
+  $$(".k-obs p").forEach((p) => (p.contentEditable = "true"));
+  $("#kp").onclick = () => window.print();
 }

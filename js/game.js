@@ -37,8 +37,9 @@ export function avatarHtml(av, size = 64, level = null) {
 }
 
 // XP: her ödev 10 XP + başarı (en fazla 20) · sınıf puanı ±5 XP · haftalık yıldız 3 XP
-export function computeXP({ subs = [], points = [], feedback = [] }) {
+export function computeXP({ subs = [], points = [], feedback = [], practice = null }) {
   let xp = 0;
+  xp += Math.min(practice?.games || 0, 60) * 2; // kelime oyunları: oyun başına 2 XP (en fazla 120)
   subs.forEach((s) => { xp += 10 + Math.round((s.best ?? s.percent ?? 0) / 5); });
   points.forEach((p) => { xp += (p.delta || 0) * 5; });
   feedback.forEach((f) => { xp += (f.stars || 0) * 3; });
@@ -52,3 +53,17 @@ export const POINT_REASONS = {
   plus: [["🙋", "Derse katılım"], ["🗣️", "İngilizce konuştu"], ["🤝", "Yardımlaştı"], ["📒", "Ödevini getirdi"], ["🌟", "Harika cevap"], ["🎯", "Odaklandı"]],
   minus: [["🔊", "Gürültü"], ["📕", "Kitap/defter yok"], ["⏰", "Geç kaldı"], ["😴", "Derse ilgisiz"], ["📱", "Kurallara uymadı"]]
 };
+
+// Haftanın başlangıcı (Pazartesi 00:00)
+export function weekStart(d = new Date()) {
+  const x = new Date(d); const day = (x.getDay() + 6) % 7; x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - day); return x;
+}
+export const dayKey = (d = new Date()) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+// Bu haftaki XP (Haftanın yıldızları için)
+export function weeklyXP({ subs = [], points = [], practice = null }, from = weekStart()) {
+  const t = from.getTime(); let xp = 0;
+  subs.forEach((s) => { if ((s.submittedAt || 0) >= t) xp += 10 + Math.round((s.best ?? s.percent ?? 0) / 5); });
+  points.forEach((p) => { if ((p.at || 0) >= t) xp += (p.delta || 0) * 5; });
+  Object.entries(practice?.log || {}).forEach(([k, n]) => { if (new Date(k + "T12:00:00").getTime() >= t) xp += Math.min(n, 10) * 2; });
+  return Math.max(0, xp);
+}

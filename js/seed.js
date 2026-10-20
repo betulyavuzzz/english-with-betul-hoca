@@ -27,3 +27,38 @@ export const SEED_ASSIGNMENTS = [
     ]
   }
 ];
+
+// Hazır kelime setleri (en = İngilizce, tr = Türkçe, e = emoji)
+export const SEED_WORDSETS = [
+  {
+    grade: 5, unit: 1, title: "School Life — Places & Subjects",
+    words: [
+      { en: "classroom", tr: "sınıf", e: "🏫" }, { en: "library", tr: "kütüphane", e: "📚" },
+      { en: "canteen", tr: "kantin", e: "🥪" }, { en: "garden", tr: "bahçe", e: "🌳" },
+      { en: "gym", tr: "spor salonu", e: "🏀" }, { en: "teacher", tr: "öğretmen", e: "👩‍🏫" },
+      { en: "friend", tr: "arkadaş", e: "🧑‍🤝‍🧑" }, { en: "Maths", tr: "Matematik", e: "➗" },
+      { en: "Science", tr: "Fen Bilimleri", e: "🔬" }, { en: "Art", tr: "Görsel Sanatlar", e: "🎨" },
+      { en: "Music", tr: "Müzik", e: "🎵" }, { en: "timetable", tr: "ders programı", e: "🗓️" }
+    ]
+  },
+  {
+    grade: 5, unit: 2, title: "Classroom Life — Classroom Objects",
+    words: [
+      { en: "board", tr: "tahta", e: "🟩" }, { en: "desk", tr: "sıra", e: "🪑" },
+      { en: "ruler", tr: "cetvel", e: "📏" }, { en: "rubber", tr: "silgi", e: "🧽" },
+      { en: "pencil", tr: "kurşun kalem", e: "✏️" }, { en: "pencil case", tr: "kalemlik", e: "👝" },
+      { en: "scissors", tr: "makas", e: "✂️" }, { en: "glue", tr: "yapıştırıcı", e: "🧴" },
+      { en: "notebook", tr: "defter", e: "📓" }, { en: "bag", tr: "çanta", e: "🎒" },
+      { en: "book", tr: "kitap", e: "📘" }, { en: "window", tr: "pencere", e: "🪟" }
+    ]
+  },
+  {
+    grade: 5, unit: 2, title: "Classroom Life — Instructions",
+    words: [
+      { en: "Open your book.", tr: "Kitabını aç.", e: "📖" }, { en: "Close the door.", tr: "Kapıyı kapat.", e: "🚪" },
+      { en: "Sit down.", tr: "Otur.", e: "🪑" }, { en: "Stand up.", tr: "Ayağa kalk.", e: "🧍" },
+      { en: "Be quiet.", tr: "Sessiz ol.", e: "🤫" }, { en: "Listen carefully.", tr: "Dikkatle dinle.", e: "👂" },
+      { en: "Raise your hand.", tr: "Parmak kaldır.", e: "🙋" }, { en: "Can I go out?", tr: "Dışarı çıkabilir miyim?", e: "🚶" }
+    ]
+  }
+];
