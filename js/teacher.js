@@ -4,10 +4,11 @@ import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js";
 import { SEED_ASSIGNMENTS } from "./seed.js";
 import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js";
 import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP } from "./game.js";
 
 const app = $("#app");
 let settings, grade, view = "home";
-let students = [], assignments = [], submissions = [], feedback = [];
+let students = [], assignments = [], submissions = [], feedback = [], profiles = {}, points = [];
 let secFilter = "";
 
 if (isDemo) $("#demoBand").classList.remove("hidden");
@@ -15,6 +16,7 @@ $("#logout").onclick = () => api.logout();
 
 settings = await api.getSettings();
 grade = settings.activeGrades[0] || 5;
+if (location.hash === "#sinif") view = "cls";
 
 api.onAuth(async (s) => {
   if (s.role === "teacher") { $("#logout").classList.remove("hidden"); await reload(); shell(); }
@@ -23,9 +25,12 @@ api.onAuth(async (s) => {
 });
 
 async function reload() {
-  [students, assignments, submissions, feedback] = await Promise.all([
-    api.listStudents(grade), api.listAssignments(grade), api.listSubmissions(grade), api.listFeedback(grade)
+  let pr;
+  [students, assignments, submissions, feedback, pr, points] = await Promise.all([
+    api.listStudents(grade), api.listAssignments(grade), api.listSubmissions(grade), api.listFeedback(grade),
+    api.listProfiles(grade).catch(() => []), api.listPoints(grade).catch(() => [])
   ]);
+  profiles = Object.fromEntries(pr.map((p) => [p.uid, p.avatar]));
   students.sort((a, b) => a.section.localeCompare(b.section, "tr") || Number(a.no) - Number(b.no));
 }
 
@@ -49,7 +54,7 @@ function login() {
 }
 
 // ---------------------------------------------------------------- İskelet
-const NAV = [["home", "🏠", "Genel bakış"], ["hw", "📝", "Ödevler"], ["res", "📊", "Sonuçlar"], ["fb", "💬", "Geri bildirim"], ["gb", "📒", "Not defteri"], ["st", "👥", "Öğrenciler"], ["set", "⚙️", "Ayarlar"]];
+const NAV = [["home", "🏠", "Genel bakış"], ["cls", "📱", "Sınıf modu"], ["hw", "📝", "Ödevler"], ["res", "📊", "Sonuçlar"], ["fb", "💬", "Geri bildirim"], ["gb", "📒", "Not defteri"], ["st", "👥", "Öğrenciler"], ["set", "⚙️", "Ayarlar"]];
 function shell() {
   app.innerHTML = `<div class="tlayout"><nav class="side">
       <div class="gsel"><select id="gs">${[5, 6, 7, 8].map((g) => `<option value="${g}" ${g === grade ? "selected" : ""}>${g}. sınıflar${settings.activeGrades.includes(g) ? "" : " (kapalı)"}</option>`).join("")}</select></div>
@@ -62,7 +67,7 @@ function shell() {
 function draw() {
   $$(".side [data-v]").forEach((b) => b.classList.toggle("on", b.dataset.v === view));
   const m = $("#main");
-  ({ home: vHome, hw: vHw, res: vRes, fb: vFb, gb: vGb, st: vSt, set: vSet })[view](m);
+  ({ home: vHome, cls: vClass, hw: vHw, res: vRes, fb: vFb, gb: vGb, st: vSt, set: vSet })[view](m);
   window.scrollTo(0, 0);
 }
 const sections = () => settings.sections[grade] || [];
@@ -443,4 +448,79 @@ function vSet(m) {
     try { await api.saveSettings(s); settings = s; shell(); view = "set"; draw(); toast("Ayarlar kaydedildi", "ok"); } catch (e) { toast(friendlyError(e), "bad"); }
   };
   if ($("#rd")) $("#rd").onclick = async () => { if (confirm("Tüm deneme verileri silinsin mi?")) { await api.resetDemo(); location.reload(); } };
+}
+
+// ---------------------------------------------------------------- Sınıf modu (telefondan artı/eksi)
+const avOf = (s) => profiles[s.uid] || defaultAvatar(s.uid);
+const netOf = (uid) => points.filter((p) => p.uid === uid).reduce((x, p) => x + p.delta, 0);
+let cmSelect = false, cmSel = new Set(), cmLog = [];
+function vClass(m) {
+  if (!secFilter && sections().length) secFilter = sections()[0];
+  const studs = visStudents();
+  const secTotals = sections().map((sec) => ({ sec, t: points.filter((p) => p.section === sec).reduce((x, p) => x + p.delta, 0) }));
+  m.innerHTML = `<div class="cm-top"><h2 style="margin:0;flex:1">📱 Sınıf modu</h2>${secSelect("sf", "Tüm şubeler")}</div>
+    <div class="cm-top">
+      <button class="btn ${cmSelect ? "gold" : "ghost"} sm" id="cmSelBtn">${cmSelect ? `✓ ${cmSel.size} seçili` : "☑️ Çoklu seç"}</button>
+      ${cmSelect ? `<button class="btn ghost sm" id="cmAll">Hepsini seç</button><button class="btn sm" id="cmGo" ${cmSel.size ? "" : "disabled"}>Puan ver →</button>` : `<button class="btn ghost sm" id="cmWhole">🎉 Tüm sınıfa +1</button><button class="btn ghost sm" id="cmPick">🎲 Rastgele öğrenci</button>`}
+    </div>
+    <p class="small muted" style="margin:0 0 10px">Öğrenciye dokunun, sebebi seçin. Öğrenci puanı ve XP'si anında kendi sayfasına yansır.</p>
+    ${studs.length ? `<div class="cm-grid">${studs.map((s) => { const n = netOf(s.uid); return `<button class="cm-st ${cmSel.has(s.uid) ? "sel" : ""}" data-cm="${s.uid}"><span class="tot ${n > 0 ? "p" : n < 0 ? "m" : ""}">${n > 0 ? "+" : ""}${n}</span>${avatarHtml(avOf(s), 54)}<span class="nm">${esc(s.name.split(" ")[0])}<br><small class="muted">${s.no}</small></span></button>`; }).join("")}</div>` : `<div class="card empty"><p>Bu şubede öğrenci yok.</p></div>`}
+    <div class="card" style="margin-top:16px"><h3>🏁 Şube yarışı</h3>${secTotals.map((x) => `<div class="race ${x.sec === secFilter ? "mine" : ""}"><b>${grade}-${x.sec}</b><div class="race-bar"><span style="width:${(Math.max(0, x.t) / Math.max(1, ...secTotals.map((y) => Math.abs(y.t)))) * 100}%"></span></div><b>${x.t}</b></div>`).join("")}</div>
+    ${cmLog.length ? `<div class="card cm-log"><h3>Son işlemler</h3>${cmLog.slice(0, 8).map((p, i) => `<div class="pitem ${p.delta > 0 ? "plus" : "minus"}"><span class="pe">${esc(p.emoji)}</span><span style="flex:1">${esc(p.name)} · ${esc(p.reason)}</span><b>${p.delta > 0 ? "+" : ""}${p.delta}</b><button class="btn ghost sm" data-undo="${i}">Geri al</button></div>`).join("")}</div>` : ""}`;
+  bindSec(() => { cmSel.clear(); vClass(m); });
+  $("#cmSelBtn").onclick = () => { cmSelect = !cmSelect; cmSel.clear(); vClass(m); };
+  if ($("#cmAll")) $("#cmAll").onclick = () => { studs.forEach((s) => cmSel.add(s.uid)); vClass(m); };
+  if ($("#cmGo")) $("#cmGo").onclick = () => reasonSheet(studs.filter((s) => cmSel.has(s.uid)), m);
+  if ($("#cmWhole")) $("#cmWhole").onclick = async () => { if (!confirm(`${studs.length} öğrenciye +1 verilsin mi?`)) return; await give(studs, 1, "🎉", "Sınıfça harika ders", m); };
+  if ($("#cmPick")) $("#cmPick").onclick = () => randomPick(studs);
+  $$("[data-cm]").forEach((b) => b.onclick = () => {
+    const s = students.find((x) => x.uid === b.dataset.cm);
+    if (cmSelect) { cmSel.has(s.uid) ? cmSel.delete(s.uid) : cmSel.add(s.uid); vClass(m); return; }
+    reasonSheet([s], m);
+  });
+  $$("[data-undo]").forEach((b) => b.onclick = async () => {
+    const p = cmLog[Number(b.dataset.undo)];
+    try { await api.deletePoint(p); points = points.filter((x) => x.id !== p.id); cmLog.splice(Number(b.dataset.undo), 1); vClass(m); toast("Geri alındı"); } catch (e) { toast(friendlyError(e), "bad"); }
+  });
+}
+function reasonSheet(list, m) {
+  const title = list.length === 1 ? `${avatarHtml(avOf(list[0]), 48)} <span>${esc(list[0].name)}</span>` : `<span>${list.length} öğrenci</span>`;
+  const { el, close } = modal(`<h3 class="row" style="gap:10px">${title}</h3>
+    <p class="small muted" style="margin:0 0 6px">Artı puan</p>
+    <div class="reasons">${POINT_REASONS.plus.map(([e, r]) => `<button class="reason p" data-r="1|${e}|${r}"><span>${e}</span>${r}</button>`).join("")}</div>
+    <p class="small muted" style="margin:14px 0 6px">Eksi puan</p>
+    <div class="reasons">${POINT_REASONS.minus.map(([e, r]) => `<button class="reason m" data-r="-1|${e}|${r}"><span>${e}</span>${r}</button>`).join("")}</div>
+    <div class="row" style="margin-top:12px"><input type="text" id="cr" placeholder="Başka sebep (isteğe bağlı)" style="flex:1"><button class="btn sm" data-c="1">+1</button><button class="btn danger sm" data-c="-1">−1</button></div>`);
+  el.querySelectorAll("[data-r]").forEach((b) => b.onclick = async () => { const [d, e, r] = b.dataset.r.split("|"); close(); await give(list, Number(d), e, r, m); });
+  el.querySelectorAll("[data-c]").forEach((b) => b.onclick = async () => { const d = Number(b.dataset.c); const r = el.querySelector("#cr").value.trim() || (d > 0 ? "Artı puan" : "Eksi puan"); close(); await give(list, d, d > 0 ? "👍" : "👎", r, m); });
+}
+async function give(list, delta, emoji, reason, m) {
+  try {
+    for (const s of list) {
+      const p = await api.addPoint({ uid: s.uid, grade, section: s.section, delta, emoji, reason });
+      points.push(p); cmLog.unshift({ ...p, name: s.name.split(" ")[0] });
+    }
+    cmSel.clear(); cmSelect = false;
+    if (navigator.vibrate) navigator.vibrate(delta > 0 ? 40 : [30, 40, 30]);
+    vClass(m);
+    list.forEach((s) => { const t = document.querySelector(`[data-cm="${s.uid}"]`); if (t) t.classList.add(delta > 0 ? "flash-p" : "flash-m"); });
+    toast(`${list.length === 1 ? list[0].name.split(" ")[0] : list.length + " öğrenci"} ${delta > 0 ? "+" : ""}${delta} · ${reason}`, delta > 0 ? "ok" : "bad");
+  } catch (e) { toast(friendlyError(e), "bad"); }
+}
+function randomPick(studs) {
+  if (!studs.length) return;
+  const { el, close } = modal(`<h3 class="center">🎲 Kim cevaplayacak?</h3><div class="wheel" id="wh"></div><div class="picked" id="pk">&nbsp;</div>
+    <div class="row" style="justify-content:center;margin-top:12px"><button class="btn ghost" id="again">Tekrar</button><button class="btn gold" id="ok">Tamam</button></div>`);
+  const spin = () => {
+    let i = 0, n = 18 + Math.floor(Math.random() * 10), delay = 60;
+    const step = () => {
+      const s = studs[Math.floor(Math.random() * studs.length)];
+      el.querySelector("#wh").innerHTML = avatarHtml(avOf(s), 110);
+      el.querySelector("#pk").textContent = i === n ? `${s.name} 🎉` : s.name.split(" ")[0];
+      if (i++ < n) { delay *= 1.12; setTimeout(step, delay); }
+    };
+    step();
+  };
+  el.querySelector("#again").onclick = spin; el.querySelector("#ok").onclick = close;
+  spin();
 }

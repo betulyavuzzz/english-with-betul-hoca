@@ -51,6 +51,7 @@ function demoBackend() {
       });
       save(d);
     }
+    d.profiles = d.profiles || {}; d.points = d.points || {}; d.classStats = d.classStats || {};
     return d;
   };
   const save = (d) => { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch {} };
@@ -108,6 +109,21 @@ function demoBackend() {
     async listFeedback(grade) { return Object.values(load().feedback).filter((f) => !grade || f.grade === grade); },
     async saveFeedback(f) { const d = load(); f.id = `${f.uid}_${f.week}`; f.updatedAt = Date.now(); d.feedback[f.id] = f; save(d); },
     async saveScore(uid, col, val) { const d = load(); d.students[uid].scores = { ...(d.students[uid].scores || {}), [col]: val }; save(d); },
+    async getProfile(uid) { return load().profiles[uid] || null; },
+    async saveProfile(p) { const d = load(); d.profiles[p.uid] = p; save(d); },
+    async listProfiles(grade) { return Object.values(load().profiles).filter((p) => !grade || p.grade === grade); },
+    async addPoint(pt) {
+      const d = load(); const pid = id(); d.points[pid] = { ...pt, id: pid, at: Date.now() };
+      const k = `${pt.grade}${pt.section}`; d.classStats[k] = { id: k, grade: pt.grade, section: pt.section, total: (d.classStats[k]?.total || 0) + pt.delta };
+      save(d); return d.points[pid];
+    },
+    async deletePoint(pt) {
+      const d = load(); delete d.points[pt.id];
+      const k = `${pt.grade}${pt.section}`; if (d.classStats[k]) d.classStats[k].total -= pt.delta; save(d);
+    },
+    async myPoints(uid) { return Object.values(load().points).filter((p) => p.uid === uid); },
+    async listPoints(grade) { return Object.values(load().points).filter((p) => !grade || p.grade === grade); },
+    async listClassStats(grade) { return Object.values(load().classStats).filter((c) => c.grade === grade); },
     async resetDemo() { try { localStorage.removeItem(KEY); } catch {} setSession(null); }
   };
 }
@@ -234,7 +250,27 @@ async function firebaseBackend() {
       return grade ? all(query(collection(db, "feedback"), where("grade", "==", grade))) : all(collection(db, "feedback"));
     },
     async saveFeedback(f) { const id = `${f.uid}_${f.week}`; await setDoc(doc(db, "feedback", id), { ...f, id, updatedAt: Date.now() }); },
-    async saveScore(uid, col, val) { await updateDoc(doc(db, "students", uid), new F.FieldPath("scores", col), val); }
+    async saveScore(uid, col, val) { await updateDoc(doc(db, "students", uid), new F.FieldPath("scores", col), val); },
+    async getProfile(uid) { const s = await getDoc(doc(db, "profiles", uid)); return s.exists() ? s.data() : null; },
+    async saveProfile(p) { await setDoc(doc(db, "profiles", p.uid), p); },
+    async listProfiles(grade) { return all(query(collection(db, "profiles"), where("grade", "==", grade))); },
+    async addPoint(pt) {
+      const ref = doc(collection(db, "points"));
+      const data = { ...pt, id: ref.id, at: Date.now() };
+      const b = F.writeBatch(db);
+      b.set(ref, data);
+      b.set(doc(db, "classStats", `${pt.grade}${pt.section}`), { grade: pt.grade, section: pt.section, total: F.increment(pt.delta) }, { merge: true });
+      await b.commit(); return data;
+    },
+    async deletePoint(pt) {
+      const b = F.writeBatch(db);
+      b.delete(doc(db, "points", pt.id));
+      b.set(doc(db, "classStats", `${pt.grade}${pt.section}`), { total: F.increment(-pt.delta) }, { merge: true });
+      await b.commit();
+    },
+    async myPoints(uid) { return all(query(collection(db, "points"), where("uid", "==", uid))); },
+    async listPoints(grade) { return all(query(collection(db, "points"), where("grade", "==", grade))); },
+    async listClassStats(grade) { return all(query(collection(db, "classStats"), where("grade", "==", grade))); }
   };
 }
 

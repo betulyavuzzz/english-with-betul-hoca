@@ -35,5 +35,20 @@ service cloud.firestore {
       allow read: if isTeacher() || (signedIn() && resource.data.uid == request.auth.uid);
       allow write: if isTeacher();
     }
+    // Avatar: öğrenci kendi avatarını kaydeder
+    match /profiles/{uid} {
+      allow read: if isTeacher() || (signedIn() && request.auth.uid == uid);
+      allow write: if isTeacher() || (isStudent() && request.auth.uid == uid && request.resource.data.uid == uid);
+    }
+    // Sınıf içi artı/eksi puanlar
+    match /points/{id} {
+      allow read: if isTeacher() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow write: if isTeacher();
+    }
+    // Şube yarışı toplamları
+    match /classStats/{id} {
+      allow read: if signedIn();
+      allow write: if isTeacher();
+    }
   }
 }
