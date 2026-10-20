@@ -2,7 +2,7 @@
 // Ünite adları Türkiye Yüzyılı Maarif Modeli İngilizce programındaki temalardır.
 export const DEFAULT_SETTINGS = {
   activeGrades: [5],
-  sections: { 5: ["A", "B", "C", "D", "E"], 6: ["A", "B", "C", "D", "E"], 7: ["A", "B", "C", "D", "E"], 8: ["A", "B", "C", "D", "E"] },
+  sections: { 5: ["A", "B", "C", "D", "E", "F", "G", "H", "İ", "J"], 6: ["A", "B", "C", "D", "E", "F", "G", "H", "İ", "J"], 7: ["A", "B", "C", "D", "E", "F", "G", "H", "İ", "J", "K"], 8: ["A", "B", "C", "D", "E", "F", "G", "H", "İ", "J"] },
   currentUnit: { 5: 2, 6: 1, 7: 1, 8: 1 },
   units: {
     5: ["School Life", "Classroom Life", "Personal Life", "Family Life", "Life in the Neighbourhood & City", "Life in the World", "Life in Nature", "Life in the Universe & Future"],

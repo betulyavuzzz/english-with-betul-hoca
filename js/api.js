@@ -6,7 +6,9 @@ import { DEFAULT_SETTINGS } from "./defaults.js";
 import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js";
 
 const PIN_PREFIX = "ewbh-";            // Firebase en az 6 karakter istiyor
-export const studentKey = (grade, section, no) => `${grade}${section}-${String(no).trim()}`.toLowerCase();
+const TR = { "İ": "i", "I": "i", "ı": "i", "Ç": "c", "ç": "c", "Ğ": "g", "ğ": "g", "Ö": "o", "ö": "o", "Ş": "s", "ş": "s", "Ü": "u", "ü": "u" };
+const ascii = (x) => String(x).replace(/[İIıÇçĞğÖöŞşÜü]/g, (c) => TR[c]).toLowerCase();
+export const studentKey = (grade, section, no) => ascii(`${grade}${section}-${String(no).trim()}`);
 const studentEmail = (grade, section, no) => `${studentKey(grade, section, no)}@${STUDENT_DOMAIN}`;
 export const newPin = () => String(Math.floor(1000 + Math.random() * 9000));
 export const isDemo = DEMO;

@@ -1,4 +1,4 @@
-import { api, isDemo, friendlyError } from "./api.js";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js";
 import { SITE } from "./config.js";
 import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js";
 import { SEED_ASSIGNMENTS } from "./seed.js";
@@ -383,11 +383,12 @@ function vGb(m) {
 // ---------------------------------------------------------------- Öğrenciler
 function vSt(m) {
   const studs = visStudents();
-  m.innerHTML = `<div class="row between"><h2>${grade}. sınıf öğrencileri (${studs.length})</h2><div class="row">${secSelect()}<button class="btn ghost sm" id="cards">🖨 Şifre kartları</button><button class="btn gold" id="add">+ Toplu öğrenci ekle</button></div></div>
+  m.innerHTML = `<div class="row between"><h2>${grade}. sınıf öğrencileri (${studs.length})</h2><div class="row">${secSelect()}<button class="btn ghost sm" id="cards">🖨 Şifre kartları</button><button class="btn ghost sm" id="fileAdd">📂 Dosyadan yükle</button><button class="btn gold" id="add">+ Toplu öğrenci ekle</button></div></div>
     ${studs.length ? `<div class="tbl-wrap"><table class="tbl"><tr><th>Şube</th><th>No</th><th>Ad Soyad</th><th class="c">Şifre</th><th></th></tr>
     ${studs.map((s) => `<tr><td>${s.section}</td><td>${s.no}</td><td>${esc(s.name)}</td><td class="c"><code>${s.pin}</code></td><td><button class="btn ghost sm" data-rp="${s.uid}">Şifre yenile</button> <button class="btn ghost sm" data-rn="${s.uid}">✏️</button> <button class="btn ghost sm" data-rm="${s.uid}">🗑</button></td></tr>`).join("")}</table></div>` : `<div class="card empty"><div class="big">👥</div><p>Bu sınıf düzeyinde öğrenci yok. "Toplu öğrenci ekle" ile e-Okul listesinden yapıştırabilirsiniz.</p></div>`}`;
   bindSec(() => vSt(m));
   $("#add").onclick = addStudents;
+  $("#fileAdd").onclick = fileImport;
   $("#cards").onclick = () => {
     const { el } = modal(`<div class="noprint row between"><h3>Şifre kartları ${secFilter ? grade + "-" + secFilter : ""}</h3><button class="btn gold" id="pp">Yazdır</button></div>
       <p class="noprint small muted">Keserek öğrencilere dağıtın.</p><div class="pincards">${studs.map((s) => `<div class="pincard"><b>${SITE.name}</b><br>${esc(s.name)}<br>Sınıf: <b>${grade}-${s.section}</b> · No: <b>${s.no}</b><br>Şifre: <span class="pin">${s.pin}</span><br><span class="small">🔗 ${esc(siteUrl())}</span><br><span class="small">👪 Veli: ${esc(siteUrl())}veli.html (aynı bilgilerle)</span></div>`).join("")}</div>`, { wide: true });
@@ -624,3 +625,53 @@ function vReports(m) {
   $$(".k-obs p").forEach((p) => (p.contentEditable = "true"));
   $("#kp").onclick = () => window.print();
 }
+
+// ---------------------------------------------------------------- Dosyadan öğrenci yükleme (Claude'un hazırladığı liste)
+const SEC_ORDER = "ABCDEFGHIİJKLMNOPRSTUVYZ";
+function fileImport() {
+  const { el, close } = modal(`<h3>📂 Dosyadan öğrenci yükle</h3>
+    <p class="small muted">Claude'un hazırladığı öğrenci listesi dosyasını (.json) seçin.</p>
+    <input type="file" id="ff" accept=".json,application/json"><div id="fbox"></div>`);
+  let closed = false;
+  const realClose = () => { closed = true; close(); };
+  el.closest(".modal-back").addEventListener("click", (e) => { if (e.target.classList.contains("modal-back") || e.target.classList.contains("modal-x")) closed = true; });
+  el.querySelector("#ff").onchange = async (e) => {
+    let data;
+    try { data = JSON.parse(await e.target.files[0].text()); } catch { el.querySelector("#fbox").innerHTML = `<p class="err">Dosya okunamadı.</p>`; return; }
+    const all = (data.students || data).filter((s) => s.grade && s.section && s.no && s.name);
+    const grades = [...new Set(all.map((s) => s.grade))].sort();
+    const existing = new Set((await api.listStudents()).map((s) => s.key));
+    const groups = {};
+    all.forEach((s) => { const k = `${s.grade}|${s.section}`; (groups[k] = groups[k] || []).push(s); });
+    const keys = Object.keys(groups).sort((a, b) => { const [g1, s1] = a.split("|"), [g2, s2] = b.split("|"); return g1 - g2 || SEC_ORDER.indexOf(s1) - SEC_ORDER.indexOf(s2); });
+    el.querySelector("#fbox").innerHTML = `<p><b>${all.length}</b> öğrenci bulundu (${grades.map((g) => g + ". sınıf").join(", ")}). Yüklenecek şubeleri seçin:</p>
+      <div class="row" style="gap:6px">${keys.map((k) => { const [g, sec] = k.split("|"); const n = groups[k].filter((s) => !existing.has(studentKeyOf(s))).length; return `<label class="badge" style="margin:0;cursor:pointer;font-size:.9rem"><input type="checkbox" data-k="${k}" ${n ? "checked" : "disabled"} style="width:auto"> ${g}-${sec} <span class="muted">(${n ? n + " yeni" : "hepsi var"})</span></label>`; }).join("")}</div>
+      <p class="small muted" style="margin-top:10px">Firebase bir saatte yaklaşık 100 hesap açılmasına izin veriyor. Limit dolarsa bu pencere açık kaldığı sürece 15 dakikada bir kendiliğinden devam eder. Sayfayı kapatırsanız, daha sonra aynı dosyayı tekrar seçmeniz yeterli; eklenmiş olanlar atlanır.</p>
+      <div id="fprog"></div><button class="btn gold" id="fgo">Yüklemeyi başlat</button>`;
+    el.querySelector("#fgo").onclick = async () => {
+      const chosen = [...el.querySelectorAll("[data-k]:checked")].map((c) => c.dataset.k);
+      if (!chosen.length) return toast("Şube seçin", "bad");
+      // ayarlara eksik şubeleri ekle
+      const s2 = structuredClone(settings);
+      chosen.forEach((k) => { const [g, sec] = k.split("|"); const arr = s2.sections[g] || []; if (!arr.includes(sec)) arr.push(sec); s2.sections[g] = arr.sort((a, b) => SEC_ORDER.indexOf(a) - SEC_ORDER.indexOf(b)); if (!s2.activeGrades.includes(Number(g))) s2.activeGrades.push(Number(g)); });
+      if (JSON.stringify(s2) !== JSON.stringify(settings)) { await api.saveSettings(s2); settings = s2; }
+      const list = chosen.flatMap((k) => groups[k]).map((s) => ({ ...s, grade: Number(s.grade), no: String(s.no) }));
+      const btn = el.querySelector("#fgo"); btn.disabled = true;
+      const prog = el.querySelector("#fprog");
+      let added = 0;
+      while (!closed) {
+        const todo = list.filter((s) => !existing.has(studentKeyOf(s)));
+        if (!todo.length) break;
+        const r = await api.addStudents(todo, (i, n) => (prog.innerHTML = `<p>⏳ Ekleniyor… <b>${added + i}</b> / ${added + n} <div class="meter"><span style="width:${((added + i) / (added + n)) * 100}%"></span></div></p>`));
+        r.added.forEach((s) => existing.add(s.key)); r.skipped.forEach((s) => existing.add(studentKeyOf(s)));
+        added += r.added.length;
+        if (!r.stoppedForLimit) { if (r.failed.length) prog.innerHTML += `<p class="err">${r.failed.length} öğrenci eklenemedi: ${r.failed.slice(0, 5).map((f) => esc(f.no + " " + f.name + " – " + f.reason)).join("; ")}</p>`; break; }
+        const left = list.filter((s) => !existing.has(studentKeyOf(s))).length;
+        for (let m = 15; m > 0 && !closed; m--) { prog.innerHTML = `<p>✅ ${added} öğrenci eklendi. ⏸ Saatlik limit doldu; kalan <b>${left}</b> öğrenci için <b>${m} dakika</b> sonra otomatik devam edilecek. Bu pencereyi kapatmayın.</p>`; await new Promise((r) => setTimeout(r, 60000)); }
+      }
+      if (!closed) { prog.innerHTML = `<p>🎉 Tamamlandı: <b>${added}</b> öğrenci eklendi.</p>` + (prog.querySelector(".err")?.outerHTML || ""); btn.textContent = "Kapat"; btn.disabled = false; btn.onclick = realClose; }
+      grade = Number(chosen[0].split("|")[0]); secFilter = ""; await reload(); shell(); view = "st"; draw();
+    };
+  };
+}
+const studentKeyOf = (s) => keyFn(s.grade, s.section, s.no);
