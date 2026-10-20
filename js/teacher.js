@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=6";
-import { SITE } from "./config.js?v=6";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=6";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=6";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=6";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=6";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart } from "./game.js?v=6";
-import { SEED_WORDSETS } from "./seed.js?v=6";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=6";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=7";
+import { SITE } from "./config.js?v=7";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=7";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=7";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=7";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=7";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart } from "./game.js?v=7";
+import { SEED_WORDSETS } from "./seed.js?v=7";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=7";
 
 const app = $("#app");
 let settings, grade, view = "home";

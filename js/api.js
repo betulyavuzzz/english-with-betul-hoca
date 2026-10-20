@@ -1,9 +1,9 @@
 // =============================================================
 //  Veri katmanı: Firebase (gerçek) veya DEMO (tarayıcı içi)
 // =============================================================
-import { FIREBASE_CONFIG, TEACHER_EMAILS, STUDENT_DOMAIN, DEMO } from "./config.js?v=6";
-import { DEFAULT_SETTINGS } from "./defaults.js?v=6";
-import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js?v=6";
+import { FIREBASE_CONFIG, TEACHER_EMAILS, STUDENT_DOMAIN, DEMO } from "./config.js?v=7";
+import { DEFAULT_SETTINGS } from "./defaults.js?v=7";
+import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js?v=7";
 
 const PIN_PREFIX = "ewbh-";            // Firebase en az 6 karakter istiyor
 const TR = { "İ": "i", "I": "i", "ı": "i", "Ç": "c", "ç": "c", "Ğ": "g", "ğ": "g", "Ö": "o", "ö": "o", "Ş": "s", "ş": "s", "Ü": "u", "ü": "u" };
@@ -194,7 +194,8 @@ async function firebaseBackend() {
     },
     async saveSettings(s) { await setDoc(doc(db, "settings", "site"), s); },
     async listStudents(grade) {
-      return grade ? all(query(collection(db, "students"), where("grade", "==", grade))) : all(collection(db, "students"));
+      const r = grade ? await all(query(collection(db, "students"), where("grade", "==", grade))) : await all(collection(db, "students"));
+      return r.map((s) => ({ ...s, uid: s.id }));
     },
     async addStudents(list, onProgress) {
       const existing = new Set((await this.listStudents()).map((s) => s.key));

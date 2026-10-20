@@ -1,10 +1,10 @@
-import { api, isDemo, friendlyError } from "./api.js?v=6";
-import { SITE } from "./config.js?v=6";
-import { SKILLS } from "./defaults.js?v=6";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=6";
-import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=6";
-import { AV_BASES, AV_BGS, AV_ACCS, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey } from "./game.js?v=6";
-import { wordsHome } from "./words.js?v=6";
+import { api, isDemo, friendlyError } from "./api.js?v=7";
+import { SITE } from "./config.js?v=7";
+import { SKILLS } from "./defaults.js?v=7";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=7";
+import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=7";
+import { AV_BASES, AV_BGS, AV_ACCS, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey } from "./game.js?v=7";
+import { wordsHome } from "./words.js?v=7";
 
 const app = $("#app");
 let settings = null;
