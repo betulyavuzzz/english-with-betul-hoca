@@ -546,3 +546,6 @@ body.print-only #printArea { display: block; padding: 16px; background: #fff; mi
 .pick-grid { grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); }
 .pick { height: 58px; }
 .has-new::after { content: "NEW"; position: absolute; top: -6px; right: -10px; background: #ff3b5c; color: #fff; font-size: .62rem; font-weight: 900; padding: 2px 6px; border-radius: 99px; animation: pulse 1s infinite; }
+.xp-msg { display: inline-block; margin: 6px auto 0; padding: 8px 14px; border-radius: 12px; font-weight: 800; font-size: .92rem; background: var(--navy-soft); }
+.xp-msg.ok { background: var(--green-soft); color: var(--green); }
+.xp-msg.no { background: #fff1d6; color: #8a5a00; }

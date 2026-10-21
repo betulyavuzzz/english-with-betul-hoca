@@ -1,5 +1,5 @@
 // Oyunlaştırma: avatar, XP, seviye, rozetler
-import { esc } from "./ui.js?v=11";
+import { esc } from "./ui.js?v=12";
 
 export const AV_BASES = ["🦊", "🐼", "🐯", "🦁", "🐸", "🐨", "🐰", "🐻", "🐵", "🦄", "🐧", "🐙", "🐶", "🐱", "🐲", "🦉", "🐬", "🦖", "🤖", "👽"];
 export const AV_BGS = [
@@ -92,7 +92,7 @@ export function avatarHtml(av, size = 64, level = null) {
 // XP: her ödev 10 XP + başarı (en fazla 20) · sınıf puanı ±5 XP · haftalık yıldız 3 XP
 export function computeXP({ subs = [], points = [], feedback = [], practice = null }) {
   let xp = 0;
-  xp += Math.min(practice?.games || 0, 60) * 2; // kelime oyunları: oyun başına 2 XP (en fazla 120)
+  xp += Math.min(practice?.xpGames || 0, 60) * 2; // kelime oyunları: sadece başarılı oyunlar, oyun başına 2 XP (en fazla 120)
   subs.forEach((s) => { xp += 10 + Math.round((s.best ?? s.percent ?? 0) / 5); });
   points.forEach((p) => { xp += (p.delta || 0) * 5; });
   feedback.forEach((f) => { xp += (f.stars || 0) * 3; });
@@ -117,7 +117,7 @@ export function weeklyXP({ subs = [], points = [], practice = null }, from = wee
   const t = from.getTime(); let xp = 0;
   subs.forEach((s) => { if ((s.submittedAt || 0) >= t) xp += 10 + Math.round((s.best ?? s.percent ?? 0) / 5); });
   points.forEach((p) => { if ((p.at || 0) >= t) xp += (p.delta || 0) * 5; });
-  Object.entries(practice?.log || {}).forEach(([k, n]) => { if (new Date(k + "T12:00:00").getTime() >= t) xp += Math.min(n, 10) * 2; });
+  Object.entries(practice?.xpLog || {}).forEach(([k, n]) => { if (new Date(k + "T12:00:00").getTime() >= t) xp += Math.min(n, GAME_DAILY_XP_LIMIT) * 2; });
   return Math.max(0, xp);
 }
 
@@ -143,3 +143,9 @@ export function podiumHtml(list, meUid = null, dark = false) {
   };
   return `<div class="pd ${dark ? "dark" : ""}">${slot(3)}${slot(1)}${slot(2)}</div>`;
 }
+
+// ---- Kelime oyunu XP kuralları (bakmadan basmayı engellemek için) ----
+export const GAME_DAILY_XP_LIMIT = 4;     // günde en fazla 4 oyun XP kazandırır
+export const QUIZ_MIN_CORRECT = 0.75;     // Dinle-Seç: en az %75 doğru (8'de 6)
+export const QUIZ_MIN_MS = 1500;          // soru başına ortalama en az 1,5 saniye
+export const MEMORY_MIN_STARS = 2;        // Hafıza: en az 2 yıldız (az hamle)

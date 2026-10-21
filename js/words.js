@@ -1,10 +1,10 @@
 // Kelime kartları, hafıza oyunu, dinle-seç
-import { esc, shuffle, speak } from "./ui.js?v=11";
+import { esc, shuffle, speak } from "./ui.js?v=12";
 
 export function wordsHome(root, sets, practice, onPlayed, units = []) {
   if (!sets.length) { root.innerHTML = `<div class="card empty"><div class="big">🃏</div><p>Öğretmenin kelime seti ekleyince burada oyun oynayabileceksin.</p></div>`; return; }
   const best = practice?.best || {};
-  root.innerHTML = `<p class="muted" style="margin-top:0">Bir kelime seti seç, kartlarla çalış ya da oyun oyna. Her bitirdiğin oyun <b>+2 XP</b>! 🎮</p>
+  root.innerHTML = `<p class="muted" style="margin-top:0">Bir kelime seti seç, kartlarla çalış ya da oyun oyna. Oyunu <b>başarıyla</b> bitirirsen <b>+2 XP</b> kazanırsın (günde en fazla 4 oyun). Dikkatli oyna, rastgele basarsan XP gelmez! 🎮</p>
     <div class="grid g2">${sets.map((w, i) => `<div class="wset" style="--wc:${["#ff6a88", "#4cc9f0", "#43aa8b", "#f6a04d", "#9d4edd", "#e63946"][i % 6]}">
       <div class="wset-top"><span class="wset-e">${esc(w.words[0]?.e || "🃏")}</span><div><b>${esc(w.title)}</b><small>Ünite ${w.unit}${units[w.unit - 1] ? " · " + esc(units[w.unit - 1]) : ""} · ${w.words.length} kelime</small></div></div>
       <div class="wset-btns">
@@ -72,18 +72,18 @@ function memory(root, w, back, onPlayed) {
   const done = () => {
     const sec = Math.round((Date.now() - t0) / 1000);
     const stars = moves <= pick.length + 2 ? 3 : moves <= pick.length * 2 ? 2 : 1;
-    root.innerHTML = `<div class="card result"><div class="big">${"⭐".repeat(stars)}</div><h2>Well done!</h2><p>${moves} hamlede, ${sec} saniyede bitirdin.</p><p class="badge ok">+2 XP</p>
+    root.innerHTML = `<div class="card result"><div class="big">${"⭐".repeat(stars)}</div><h2>Well done!</h2><p>${moves} hamlede, ${sec} saniyede bitirdin.</p><p class="xp-msg" id="xpm">…</p>
       <div class="row" style="justify-content:center;margin-top:14px"><button class="btn ghost" id="ag">🔁 Tekrar</button><button class="btn gold" id="bk">← Setler</button></div></div>`;
     root.querySelector("#ag").onclick = () => memory(root, w, back, onPlayed);
     root.querySelector("#bk").onclick = back;
-    onPlayed?.({ setId: w.id, mode: "memory", score: stars });
+    Promise.resolve(onPlayed?.({ setId: w.id, mode: "memory", score: stars, moves, pairs: pick.length, ms: Date.now() - t0 })).then((r) => showReward(root, r));
   };
   draw();
 }
 
 function quiz(root, w, back, onPlayed) {
   const qs = shuffle(w.words).slice(0, Math.min(8, w.words.length));
-  let i = 0, score = 0;
+  let i = 0, score = 0; const t0 = Date.now();
   const draw = () => {
     const x = qs[i];
     const opts = shuffle([x, ...shuffle(w.words.filter((y) => y !== x)).slice(0, 3)]);
@@ -99,11 +99,17 @@ function quiz(root, w, back, onPlayed) {
     });
   };
   const done = () => {
-    root.innerHTML = `<div class="card result"><div class="big">${score >= qs.length - 1 ? "🏆" : score >= qs.length / 2 ? "🌟" : "💪"}</div><h2>${score}/${qs.length}</h2><p class="badge ok">+2 XP</p>
+    root.innerHTML = `<div class="card result"><div class="big">${score >= qs.length - 1 ? "🏆" : score >= qs.length / 2 ? "🌟" : "💪"}</div><h2>${score}/${qs.length}</h2><p class="xp-msg" id="xpm">…</p>
       <div class="row" style="justify-content:center;margin-top:14px"><button class="btn ghost" id="ag">🔁 Tekrar</button><button class="btn gold" id="bk">← Setler</button></div></div>`;
     root.querySelector("#ag").onclick = () => quiz(root, w, back, onPlayed);
     root.querySelector("#bk").onclick = back;
-    onPlayed?.({ setId: w.id, mode: "quiz", score });
+    Promise.resolve(onPlayed?.({ setId: w.id, mode: "quiz", score, total: qs.length, ms: Date.now() - t0 })).then((r) => showReward(root, r));
   };
   draw();
+}
+
+function showReward(root, r) {
+  const el = root.querySelector("#xpm"); if (!el || !r) return;
+  el.className = "xp-msg " + (r.xp ? "ok" : "no");
+  el.textContent = r.msg;
 }

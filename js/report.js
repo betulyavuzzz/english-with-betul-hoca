@@ -1,8 +1,8 @@
 // Dönem sonu karnesi (öğretmen paneli ve veli sayfası ortak kullanır)
-import { esc } from "./ui.js?v=11";
-import { SITE } from "./config.js?v=11";
-import { SKILLS } from "./defaults.js?v=11";
-import { avatarHtml, computeXP } from "./game.js?v=11";
+import { esc } from "./ui.js?v=12";
+import { SITE } from "./config.js?v=12";
+import { SKILLS } from "./defaults.js?v=12";
+import { avatarHtml, computeXP } from "./game.js?v=12";
 
 export const TERMS = () => {
   const now = new Date();
@@ -37,7 +37,7 @@ export function reportData({ student, assignments, subs, points, feedback, pract
   const fbs = feedback.filter((f) => inT(f.updatedAt || 0)).sort((a, b) => a.week - b.week);
   const stars = avg(fbs.map((f) => f.stars || 0).filter(Boolean));
   const X = computeXP({ subs, points, feedback, practice });
-  return { as, subMap, done, pcts, average: avg(pcts), skills, plus, minus, topReason, fbs, stars, X, games: practice?.games || 0 };
+  return { as, subMap, done, pcts, average: avg(pcts), skills, plus, minus, topReason, fbs, stars, X, games: practice?.xpGames || 0 };
 }
 
 export function observation(student, d) {

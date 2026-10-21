@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=11";
-import { SITE } from "./config.js?v=11";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=11";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=11";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=11";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=11";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml } from "./game.js?v=11";
-import { SEED_WORDSETS } from "./seed.js?v=11";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=11";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=12";
+import { SITE } from "./config.js?v=12";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=12";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=12";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=12";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=12";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=12";
+import { SEED_WORDSETS } from "./seed.js?v=12";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=12";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -582,11 +582,19 @@ function messages(a) {
 // ---------------------------------------------------------------- Kelime setleri
 function vWords(m) {
   m.innerHTML = `<div class="row between"><h2>🃏 ${grade}. sınıf kelime setleri</h2><div class="row">${grade === 5 ? `<button class="btn ghost sm" id="wseed">⭐ Hazır setleri yükle</button>` : ""}<button class="btn gold" id="wnew">+ Yeni set</button></div></div>
-    <p class="small muted">Öğrenciler yayındaki setlerle kartlar, hafıza oyunu ve dinle-seç oyunu oynar. Her oyun +2 XP kazandırır.</p>
+    <p class="small muted">Öğrenciler yayındaki setlerle kartlar, hafıza oyunu ve dinle-seç oyunu oynar. Başarıyla bitirilen her oyun +2 XP kazandırır.</p>
     ${wordsets.length ? `<div class="tbl-wrap"><table class="tbl"><tr><th>Ünite</th><th>Set</th><th class="c">Kelime</th><th class="c">Durum</th><th></th></tr>${wordsets.map((w) => `<tr><td>${w.unit}. ${esc(unitName(w.unit))}</td><td><b>${esc(w.title)}</b><br><span class="small muted">${esc(w.words.slice(0, 6).map((x) => x.en).join(", "))}…</span></td><td class="c">${w.words.length}</td>
       <td class="c"><button class="btn sm ${w.published ? "" : "ghost"}" data-wpub="${w.id}">${w.published ? "Yayında" : "Taslak"}</button></td><td><button class="btn ghost sm" data-wed="${w.id}">✏️</button> <button class="btn ghost sm" data-wdel="${w.id}">🗑</button></td></tr>`).join("")}</table></div>` : `<div class="card empty"><div class="big">🃏</div><p>Henüz kelime seti yok.</p></div>`}
-    <div class="card" style="margin-top:16px"><h3>👀 Öğrencilerin kelime oyunu kullanımı</h3>${practices.length ? `<div class="tbl-wrap"><table class="tbl"><tr><th>Öğrenci</th><th class="c">Toplam oyun</th><th class="c">Bu hafta</th></tr>${practices.sort((a, b) => (b.games || 0) - (a.games || 0)).map((p) => { const st = students.find((x) => x.uid === p.uid); if (!st) return ""; const wk = Object.entries(p.log || {}).filter(([k]) => new Date(k + "T12:00") >= weekStart()).reduce((x, [, n]) => x + n, 0); return `<tr><td>${st.section}·${st.no} ${esc(st.name)}</td><td class="c">${p.games || 0}</td><td class="c">${wk}</td></tr>`; }).join("")}</table></div>` : `<p class="muted small">Henüz oyun oynanmadı.</p>`}</div>`;
+    <div class="card" style="margin-top:16px"><h3>👀 Öğrencilerin kelime oyunu kullanımı</h3>
+      <p class="small muted" style="margin-top:-6px">XP sadece başarılı oyunlardan gelir: Dinle-Seç'te en az %75 doğru ve acele etmeden, Hafıza'da en az 2 yıldız; günde en fazla ${GAME_DAILY_XP_LIMIT} oyun. ⚠️ = çok oynayıp az başaran öğrenci.</p>
+      ${practices.length ? `<div class="tbl-wrap"><table class="tbl"><tr><th>Öğrenci</th><th class="c">Oynanan</th><th class="c">Başarılı (XP)</th><th class="c">Dinle-Seç doğruluk</th><th class="c">Bu hafta</th><th></th></tr>${practices.sort((a, b) => (b.games || 0) - (a.games || 0)).map((p) => { const st = students.find((x) => x.uid === p.uid); if (!st) return ""; const wk = Object.entries(p.log || {}).filter(([k]) => new Date(k + "T12:00") >= weekStart()).reduce((x, [, n]) => x + n, 0); const acc = p.quizTotal ? Math.round((p.quizRight / p.quizTotal) * 100) : null; const warn = (p.games || 0) >= 8 && (p.xpGames || 0) / (p.games || 1) < 0.4; return `<tr><td>${warn ? "⚠️ " : ""}${st.section}·${st.no} ${esc(st.name)}</td><td class="c">${p.games || 0}</td><td class="c"><b>${p.xpGames || 0}</b></td><td class="c">${acc == null ? "–" : `<span class="cell-score score ${pctClass(acc)}">%${acc}</span>`}</td><td class="c">${wk}</td><td><button class="btn ghost sm" data-preset="${p.uid}" title="Oyun XP'sini sıfırla">↺ XP sıfırla</button></td></tr>`; }).join("")}</table></div>` : `<p class="muted small">Henüz oyun oynanmadı.</p>`}</div>`;
   if ($("#wseed")) $("#wseed").onclick = async () => { for (const w of SEED_WORDSETS) if (w.grade === grade && !wordsets.some((x) => x.title === w.title)) await api.saveWordset({ ...structuredClone(w), published: true }); await reload(); vWords(m); toast("Hazır setler eklendi", "ok"); };
+  $$("[data-preset]").forEach((b) => b.onclick = async () => {
+    const p = practices.find((x) => x.uid === b.dataset.preset); const st = students.find((x) => x.uid === p.uid);
+    if (!confirm(`${st.name} öğrencisinin kelime oyunu XP'si sıfırlansın mı? (Oynadığı oyun sayısı kalır.)`)) return;
+    Object.assign(p, { xpGames: 0, xpLog: {}, xpKeys: [], updatedAt: Date.now() });
+    try { await api.savePractice(p); starsCache = {}; await publishStars(); vWords(m); toast("Sıfırlandı", "ok"); } catch (e) { toast(friendlyError(e), "bad"); }
+  });
   $("#wnew").onclick = () => wordEditor({ grade, unit: settings.currentUnit[grade] || 1, title: "", words: [], published: true });
   $$("[data-wed]").forEach((b) => b.onclick = () => wordEditor(structuredClone(wordsets.find((x) => x.id === b.dataset.wed))));
   $$("[data-wpub]").forEach((b) => b.onclick = async () => { const w = wordsets.find((x) => x.id === b.dataset.wpub); w.published = !w.published; await api.saveWordset(w); vWords(m); });

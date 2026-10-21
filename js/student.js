@@ -1,10 +1,10 @@
-import { api, isDemo, friendlyError } from "./api.js?v=11";
-import { SITE } from "./config.js?v=11";
-import { SKILLS } from "./defaults.js?v=11";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=11";
-import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=11";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, weeklyEntry, weekKey, weekLabel, podiumHtml } from "./game.js?v=11";
-import { wordsHome } from "./words.js?v=11";
+import { api, isDemo, friendlyError } from "./api.js?v=12";
+import { SITE } from "./config.js?v=12";
+import { SKILLS } from "./defaults.js?v=12";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=12";
+import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=12";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml } from "./game.js?v=12";
+import { wordsHome } from "./words.js?v=12";
 
 const app = $("#app");
 let settings = null;
@@ -144,7 +144,7 @@ function badgesFor() {
     { e: "⏰", n: "Dakik", d: "3 ödevi zamanında yap", on: onTime >= 3, c: "#7f7fd5" },
     { e: "🙋", n: "Söz Ustası", d: "Derste 10 artı puan al", on: plus >= 10, c: "#e63946" },
     { e: "🌟", n: "Öğretmenin Yıldızı", d: "Haftalık 5 yıldız al", on: feedback.some((f) => f.stars >= 5), c: "#ff7eb3" },
-    { e: "🃏", n: "Kelime Avcısı", d: "10 kelime oyunu oyna", on: (practice?.games || 0) >= 10, c: "#f3722c" },
+    { e: "🃏", n: "Kelime Avcısı", d: "10 kelime oyununu başarıyla bitir", on: (practice?.xpGames || 0) >= 10, c: "#f3722c" },
     { e: "🌟", n: "Haftanın Yıldızı", d: "Haftanın yıldızları arasına gir", on: !!stars?.list?.slice(0, 3).some((x) => x.uid === me.uid) || !!profile?.wasStar, c: "#c9a227" },
     { e: "🦸", n: "Hero", d: "6. seviyeye ulaş", on: lv >= 6, c: "#9d4edd" }
   ];
@@ -158,7 +158,7 @@ function avatarStats() {
   for (const a of chrono) { if (subs[a.id]) { streak++; best = Math.max(best, streak); } else if (status(a).late) streak = 0; }
   return {
     lv: xpNow().level, hw: done.length, perfect: done.filter((x) => scoreOf(x) >= 100).length,
-    games: practice?.games || 0, plus: points.filter((p) => p.delta > 0).reduce((x, p) => x + p.delta, 0),
+    games: practice?.xpGames || 0, plus: points.filter((p) => p.delta > 0).reduce((x, p) => x + p.delta, 0),
     star: (profile?.wasStar || stars?.list?.slice(0, 3).some((x) => x.uid === me.uid)) ? 1 : 0,
     streak: best, badges: badgesFor().filter((x) => x.on).length
   };
@@ -351,7 +351,7 @@ function progressView() {
           <div class="xp-bar big"><span style="width:${(X.into / X.need) * 100}%"></span></div>
           <p class="small" style="margin:6px 0 0">Toplam <b>${X.xp} XP</b>${nextLv ? ` · <b>${nextLv}</b> olmana ${X.need - X.into} XP kaldı!` : " · En üst seviyedesin! 👑"}</p></div>
       </div>
-      <p class="small muted" style="margin:12px 0 0">💡 Her ödev +10 XP, başarı puanına göre +20 XP'ye kadar; derste aldığın her artı +5 XP, öğretmeninin verdiği her yıldız +3 XP, her kelime oyunu +2 XP.</p>
+      <p class="small muted" style="margin:12px 0 0">💡 Her ödev +10 XP, başarı puanına göre +20 XP'ye kadar; derste aldığın her artı +5 XP, öğretmeninin verdiği her yıldız +3 XP, başarıyla bitirdiğin her kelime oyunu +2 XP (günde en fazla 4).</p>
     </div>
 
     <div class="tiles">
@@ -359,7 +359,7 @@ function progressView() {
       <div class="tile t2"><span>🎯</span><b>${pcts.length ? avg(pcts) : "–"}</b><small>ortalama puan</small></div>
       <div class="tile t3"><span>🔥</span><b>${streak}</b><small>ödev serisi</small></div>
       <div class="tile t4"><span>${missed ? "😬" : "🛡️"}</span><b>${missed}</b><small>kaçırılan ödev</small></div>
-      <div class="tile t5"><span>🎮</span><b>${practice?.games || 0}</b><small>kelime oyunu</small></div>
+      <div class="tile t5"><span>🎮</span><b>${practice?.xpGames || 0}</b><small>başarılı kelime oyunu</small></div>
     </div>
 
     <div class="card"><h3>🗺️ Ödev yolculuğum</h3>
@@ -484,16 +484,36 @@ function confetti() {
   document.body.appendChild(box); setTimeout(() => box.remove(), 3500);
 }
 
-async function onPlayed({ setId, mode, score }) {
+async function onPlayed({ setId, mode, score, total, moves, pairs, ms }) {
   const lvBefore = xpNow().level;
   const p = practice || { uid: me.uid, grade: me.grade, section: me.section, games: 0, log: {}, best: {} };
+  const k = dayKey();
   p.games = (p.games || 0) + 1;
-  const k = dayKey(); p.log = { ...(p.log || {}), [k]: ((p.log || {})[k] || 0) + 1 };
+  p.log = { ...(p.log || {}), [k]: ((p.log || {})[k] || 0) + 1 };
   const bk = `${setId}_${mode}`; p.best = { ...(p.best || {}), [bk]: Math.max(score, (p.best || {})[bk] ?? 0) };
+  // Başarı kontrolü
+  let ok = true, msg = "";
+  if (mode === "quiz") {
+    p.quizRight = (p.quizRight || 0) + score; p.quizTotal = (p.quizTotal || 0) + total;
+    if (score / total < QUIZ_MIN_CORRECT) { ok = false; msg = `XP için en az ${Math.ceil(total * QUIZ_MIN_CORRECT)} doğru gerekiyor. Kartlarla çalışıp tekrar dene! 💪`; }
+    else if (ms / total < QUIZ_MIN_MS) { ok = false; msg = "Çok hızlı bastın! Dinleyip düşünerek cevap verirsen XP kazanırsın. 🎧"; }
+  }
+  if (mode === "memory" && score < MEMORY_MIN_STARS) { ok = false; msg = `XP için en az ${MEMORY_MIN_STARS} yıldız gerekiyor; daha az hamlede bitirmeye çalış! 🧠`; }
+  const today = (p.xpLog || {})[k] || 0;
+  const doneKeys = p.xpDay === k ? (p.xpKeys || []) : [];
+  if (ok && doneKeys.includes(bk)) { ok = false; msg = "Bu oyundan bugün XP aldın. Başka bir set ya da oyun dene! 🔁"; }
+  if (ok && today >= GAME_DAILY_XP_LIMIT) { ok = false; msg = `Bugünlük oyun XP'si tamam (${GAME_DAILY_XP_LIMIT}/${GAME_DAILY_XP_LIMIT}). Yarın yine gel! 🌙`; }
+  if (ok) {
+    p.xpGames = (p.xpGames || 0) + 1;
+    p.xpLog = { ...(p.xpLog || {}), [k]: today + 1 };
+    p.xpDay = k; p.xpKeys = [...doneKeys, bk];
+    msg = `+2 XP kazandın! (Bugün ${today + 1}/${GAME_DAILY_XP_LIMIT})`;
+  }
   p.updatedAt = Date.now();
   practice = p;
   try { await api.savePractice(p); } catch (e) { toast("Oyun kaydedilemedi: " + friendlyError(e), "bad"); }
-  confetti();
+  if (ok) confetti();
   refreshStars();
   if (xpNow().level > lvBefore) toast(`⬆️ LEVEL UP! Lv ${xpNow().level} · ${xpNow().name}`, "ok");
+  return { xp: ok ? 2 : 0, msg };
 }
