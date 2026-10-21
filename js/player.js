@@ -1,5 +1,5 @@
 // Etkinlik oynatıcı ve puanlama
-import { esc, shuffle, speak } from "./ui.js?v=9";
+import { esc, shuffle, speak } from "./ui.js?v=11";
 
 export const itemPoints = (it) => (it.type === "write" ? Number(it.points || 3) : Number(it.points || 1));
 

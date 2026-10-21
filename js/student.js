@@ -1,10 +1,10 @@
-import { api, isDemo, friendlyError } from "./api.js?v=9";
-import { SITE } from "./config.js?v=9";
-import { SKILLS } from "./defaults.js?v=9";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=9";
-import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=9";
-import { AV_BASES, AV_BGS, AV_ACCS, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, weeklyEntry, weekKey, weekLabel } from "./game.js?v=9";
-import { wordsHome } from "./words.js?v=9";
+import { api, isDemo, friendlyError } from "./api.js?v=11";
+import { SITE } from "./config.js?v=11";
+import { SKILLS } from "./defaults.js?v=11";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=11";
+import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=11";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, weeklyEntry, weekKey, weekLabel, podiumHtml } from "./game.js?v=11";
+import { wordsHome } from "./words.js?v=11";
 
 const app = $("#app");
 let settings = null;
@@ -151,31 +151,65 @@ function badgesFor() {
 }
 
 // ---------------------------------------------------------------- Avatar oluşturucu
+function avatarStats() {
+  const done = Object.values(subs);
+  const chrono = [...assignments].sort((a, b) => (a.week || 0) - (b.week || 0) || (a.createdAt || 0) - (b.createdAt || 0));
+  let streak = 0, best = 0;
+  for (const a of chrono) { if (subs[a.id]) { streak++; best = Math.max(best, streak); } else if (status(a).late) streak = 0; }
+  return {
+    lv: xpNow().level, hw: done.length, perfect: done.filter((x) => scoreOf(x) >= 100).length,
+    games: practice?.games || 0, plus: points.filter((p) => p.delta > 0).reduce((x, p) => x + p.delta, 0),
+    star: (profile?.wasStar || stars?.list?.slice(0, 3).some((x) => x.uid === me.uid)) ? 1 : 0,
+    streak: best, badges: badgesFor().filter((x) => x.on).length
+  };
+}
+function avatarCatalog() {
+  const free = (e) => ({ e, n: "", req: {} });
+  return {
+    base: [...AV_BASES.map(free), ...LOCKED_BASES],
+    bg: [...AV_BGS.map((c, i) => ({ i, c, req: {} })), ...LOCKED_BGS.map((x, k) => ({ ...x, i: AV_BGS.length + k }))],
+    acc: AV_ACCS, side: AV_SIDES, frame: AV_FRAMES
+  };
+}
+function unlockedCount() { const st = avatarStats(); const c = avatarCatalog(); return Object.values(c).flat().filter((x) => isUnlocked(x.req, st)).length; }
+
+let avTab = "base";
 function avatarBuilder(first = false) {
-  const lv = xpNow().level;
-  let av = structuredClone(profile?.avatar || defaultAvatar(me.uid));
+  const st = avatarStats();
+  const lv = st.lv;
+  const C = avatarCatalog();
+  let av = { acc: "", side: "", frame: "", ...structuredClone(profile?.avatar || defaultAvatar(me.uid)) };
   app.className = "wrap narrow";
+  const TABS = [["base", "🦊", "Karakter"], ["bg", "🎨", "Renk"], ["acc", "🎩", "Şapka"], ["side", "🎸", "Eşya"], ["frame", "✨", "Çerçeve"]];
+  const lockedCount = Object.values(C).flat().filter((x) => !isUnlocked(x.req, st)).length;
   const draw = () => {
+    const list = C[avTab];
+    const cell = (x, sel, attr, inner) => { const lk = !isUnlocked(x.req, st); return `<button class="pick ${sel ? "on" : ""} ${lk ? "locked" : ""}" ${attr} ${lk ? `data-lock="${esc(reqLong(x.req))}" data-name="${esc(x.n || "")}"` : ""} title="${esc(x.n || "")}">${inner}${lk ? `<small>🔒 ${esc(reqShort(x.req))}</small>` : ""}</button>`; };
+    let grid = "";
+    if (avTab === "base") grid = list.map((x) => cell(x, av.base === x.e, `data-v="${x.e}"`, x.e)).join("");
+    if (avTab === "bg") grid = list.map((x) => cell(x, av.bg === x.i, `data-v="${x.i}"`, `<span class="sw-in ${x.fx ? "fx-" + x.fx : ""}" style="background:${x.fx === "rainbow" ? "conic-gradient(#ff595e,#ffca3a,#8ac926,#1982c4,#6a4c93,#ff595e)" : `linear-gradient(135deg,${x.c[0]},${x.c[1]})`}"></span>`)).join("");
+    if (avTab === "acc" || avTab === "side") grid = list.map((x) => cell(x, av[avTab] === x.e, `data-v="${x.e}"`, x.e || "∅")).join("");
+    if (avTab === "frame") grid = list.map((x) => cell(x, av.frame === x.id, `data-v="${x.id}"`, `<span class="fr-prev">${avatarHtml({ ...av, frame: x.id, acc: "", side: "" }, 34)}</span>`)).join("");
     app.innerHTML = `<div class="card builder">
       <h2 class="center">${first ? "🎨 Avatarını oluştur!" : "🎨 Avatarım"}</h2>
-      ${first ? `<p class="center muted" style="margin-top:-6px">Seni temsil edecek karakteri seç. Seviye atladıkça yeni aksesuarlar açılacak!</p>` : ""}
-      <div class="center" style="margin:14px 0 18px"><div class="bounce">${avatarHtml(av, 130, lv)}</div></div>
-      <label>Karakter</label>
-      <div class="pick-grid">${AV_BASES.map((b) => `<button class="pick ${av.base === b ? "on" : ""}" data-b="${b}">${b}</button>`).join("")}</div>
-      <label style="margin-top:14px">Arka plan</label>
-      <div class="pick-grid">${AV_BGS.map(([c1, c2], i) => `<button class="pick sw ${av.bg === i ? "on" : ""}" data-bg="${i}" style="background:linear-gradient(135deg,${c1},${c2})" aria-label="Renk ${i + 1}"></button>`).join("")}</div>
-      <label style="margin-top:14px">Aksesuar</label>
-      <div class="pick-grid">${AV_ACCS.map((a) => { const locked = lv < a.lv; return `<button class="pick ${av.acc === a.e ? "on" : ""} ${locked ? "locked" : ""}" data-acc="${a.e}" ${locked ? `data-lv="${a.lv}"` : ""} title="${a.n}">${a.e || "∅"}${locked ? `<small>🔒 Lv${a.lv}</small>` : ""}</button>`; }).join("")}</div>
+      <p class="center muted" style="margin-top:-6px">${first ? "Seni temsil edecek karakteri seç." : ""} 🔒 Kilitli <b>${lockedCount}</b> eşya var: ödev yap, oyun oyna, derste artı al, kilitleri aç!</p>
+      <div class="center" style="margin:22px 0 18px"><div class="bounce">${avatarHtml(av, 130, lv)}</div></div>
+      <div class="av-tabs">${TABS.map(([k, e, n]) => `<button class="av-tab ${avTab === k ? "on" : ""}" data-t="${k}"><span>${e}</span>${n}</button>`).join("")}</div>
+      <div class="pick-grid">${grid}</div>
       <button class="btn gold lg block" id="avs" style="margin-top:20px">${first ? "Hadi başlayalım! 🚀" : "Kaydet"}</button>
       ${first ? "" : `<button class="btn ghost block" id="avc" style="margin-top:8px">Vazgeç</button>`}
     </div>`;
-    $$("[data-b]").forEach((b) => b.onclick = () => { av.base = b.dataset.b; draw(); });
-    $$("[data-bg]").forEach((b) => b.onclick = () => { av.bg = Number(b.dataset.bg); draw(); });
-    $$("[data-acc]").forEach((b) => b.onclick = () => { if (b.dataset.lv) return toast(`Bu aksesuar ${b.dataset.lv}. seviyede açılır. Ödev yaparak XP kazan! 💪`); av.acc = b.dataset.acc; draw(); });
+    $$(".av-tab").forEach((b) => b.onclick = () => { avTab = b.dataset.t; draw(); });
+    $$(".pick-grid .pick").forEach((b) => b.onclick = () => {
+      if (b.dataset.lock) return toast(`🔒 ${b.dataset.name ? b.dataset.name + ": " : ""}Açmak için ${b.dataset.lock}! 💪`);
+      const v = b.dataset.v;
+      if (avTab === "base") av.base = v; else if (avTab === "bg") av.bg = Number(v); else av[avTab] = v;
+      draw();
+    });
     $("#avs").onclick = async () => {
       $("#avs").disabled = true;
       try {
-        profile = { uid: me.uid, grade: me.grade, section: me.section, avatar: av, updatedAt: Date.now() };
+        profile = { ...(profile || {}), uid: me.uid, grade: me.grade, section: me.section, avatar: av, updatedAt: Date.now() };
         await api.saveProfile(profile); rememberMe();
         if (first) confetti();
         showHome();
@@ -220,6 +254,11 @@ function showHome() {
     </nav>
     <section id="tabBody"></section>`;
   $("#editAv").onclick = () => avatarBuilder(false);
+  try {
+    const k = "ewbh-unl-" + me.uid, n = unlockedCount(), prev = Number(localStorage.getItem(k) || 0);
+    if (prev && n > prev) { setTimeout(() => toast(`🎁 ${n - prev} yeni avatar eşyası açıldı! Avatarına dokun.`, "ok"), 600); $("#editAv").classList.add("has-new"); }
+    localStorage.setItem(k, String(n));
+  } catch {}
   $$(".tab").forEach((b) => b.onclick = () => { tab = b.dataset.t; drawTab(); });
   drawTab();
 }
@@ -250,7 +289,7 @@ function dueChip(a) {
 function starsCard() {
   if (!stars?.list?.length) return "";
   return `<div class="stars-card"><div class="sc-head"><b>🌟 Haftanın Yıldızları · ${me.grade}-${me.section}</b><small>${esc(stars.label || "")}</small></div>
-    <div class="podium">${stars.list.slice(0, 3).map((x, i) => `<div class="pod p${i + 1} ${x.uid === me.uid ? "me" : ""}">${avatarHtml(x.avatar, i === 0 ? 70 : 56)}<b>${esc(x.name)}</b><span>${["🥇", "🥈", "🥉"][i]} ${x.xp} XP</span></div>`).join("")}</div>
+    ${podiumHtml(stars.list, me.uid, true)}
     ${stars.list.slice(0, 3).some((x) => x.uid === me.uid) ? `<p class="center" style="margin:8px 0 0;font-weight:800">Bu hafta sen de yıldızlar arasındasın! 🎉</p>` : `<p class="center small" style="margin:8px 0 0;opacity:.85">Ödev yap, kelime oyunu oyna, derste katıl; gelecek hafta sen de burada ol!</p>`}</div>`;
 }
 function hwList() {

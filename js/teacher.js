@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=9";
-import { SITE } from "./config.js?v=9";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=9";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=9";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=9";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=9";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry } from "./game.js?v=9";
-import { SEED_WORDSETS } from "./seed.js?v=9";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=9";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=11";
+import { SITE } from "./config.js?v=11";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=11";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=11";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=11";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=11";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml } from "./game.js?v=11";
+import { SEED_WORDSETS } from "./seed.js?v=11";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=11";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -559,7 +559,7 @@ function starsPreview() {
   const secs = sections().map((sec) => ({ sec, list: computeStars(sec) })).filter((x) => x.list.length);
   if (!secs.length) return "";
   return `<div class="card"><h3>🌟 Haftanın yıldızları <span class="muted small">(${weekLabel()})</span></h3><p class="small muted" style="margin-top:-6px">Bu hafta en çok XP kazananlar. Öğrenci sayfalarında otomatik görünür.</p>
-    <div class="grid g3">${secs.map((x) => `<div><b>${grade}-${x.sec}</b>${x.list.map((s, i) => `<div class="row" style="margin-top:6px;gap:8px">${["🥇", "🥈", "🥉"][i]} ${avatarHtml(s.avatar, 30)} <span>${esc(s.name)}</span> <span class="muted small">${s.xp} XP</span></div>`).join("")}</div>`).join("")}</div></div>`;
+    <div class="grid g2">${secs.map((x) => `<div>${secs.length > 1 ? `<b>${grade}-${x.sec}</b>` : ""}${podiumHtml(x.list)}</div>`).join("")}</div></div>`;
 }
 
 // ---------------------------------------------------------------- Mesaj şablonları (WhatsApp)
