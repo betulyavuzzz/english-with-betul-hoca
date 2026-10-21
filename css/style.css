@@ -483,3 +483,17 @@ body { background: radial-gradient(circle at 10% 0%, #fff6dc 0, transparent 40%)
   body.print-karne .card:has(#kbox) { box-shadow: none; border: 0; padding: 0; }
 }
 @media print { body { background: #fff !important; } }
+/* Yazdırma alanı */
+#printArea { display: none; }
+body.print-only > *:not(#printArea) { display: none !important; }
+body.print-only #printArea { display: block; padding: 16px; background: #fff; min-height: 100vh; }
+.pr-bar { display: flex; gap: 10px; align-items: center; justify-content: space-between; background: var(--gold-soft); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; font-size: .9rem; }
+.pr-title { font-size: 1.2rem; }
+.pincard .url { display: block; font-size: .72rem; color: var(--muted); word-break: break-all; line-height: 1.3; margin-top: 2px; }
+.modal > .row:first-of-type, .modal > h3:first-of-type { padding-right: 42px; }
+.pincards { min-width: 0; } .pincard { min-width: 0; overflow-wrap: anywhere; }
+@media print {
+  body.print-only #printArea { padding: 0; }
+  .pincards { grid-template-columns: repeat(3, 1fr) !important; gap: 6px; }
+  .pincard { font-size: 10pt; padding: 8px; }
+}

@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=8";
-import { SITE } from "./config.js?v=8";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=8";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=8";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=8";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=8";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry } from "./game.js?v=8";
-import { SEED_WORDSETS } from "./seed.js?v=8";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=8";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=9";
+import { SITE } from "./config.js?v=9";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=9";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=9";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=9";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=9";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry } from "./game.js?v=9";
+import { SEED_WORDSETS } from "./seed.js?v=9";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=9";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -355,8 +355,7 @@ function printCards(week, studs, wAs) {
     return `<div class="pincard" style="border-style:solid;border-color:var(--gold)"><b>${esc(s.name)}</b> · ${grade}-${s.section} · ${week}. hafta<br><span class="stars">${"★".repeat(f.stars || 0)}${"☆".repeat(5 - (f.stars || 0))}</span><br><span class="small">${ps}</span>${f.note ? `<p style="margin:6px 0 0">${esc(f.note)}</p>` : ""}${f.work ? `<p class="small" style="margin:4px 0 0">🎯 ${esc(f.work)}</p>` : ""}<p class="small muted" style="margin:6px 0 0">— ${SITE.teacher}</p></div>`;
   }).join("");
   const { close } = modal(`<div class="noprint row between"><h3>Geri bildirim kartları</h3><button class="btn gold" id="pp">Yazdır</button></div><div class="pincards" style="grid-template-columns:repeat(2,1fr)">${html}</div>`, { wide: true });
-  $("#pp").onclick = () => { document.body.classList.add("printing"); window.print(); document.body.classList.remove("printing"); };
-  void close;
+  $("#pp").onclick = () => { close(); printHtml(`<h2 class="pr-title">Geri bildirim kartları · ${week}. hafta</h2><div class="pincards">${html}</div>`); };
 }
 
 // ---------------------------------------------------------------- Not defteri
@@ -392,8 +391,8 @@ function vSt(m) {
   $("#fileAdd").onclick = fileImport;
   $("#cards").onclick = () => {
     const { el } = modal(`<div class="noprint row between"><h3>Şifre kartları ${secFilter ? grade + "-" + secFilter : ""}</h3><button class="btn gold" id="pp">Yazdır</button></div>
-      <p class="noprint small muted">Keserek öğrencilere dağıtın.</p><div class="pincards">${studs.map((s) => `<div class="pincard"><b>${SITE.name}</b><br>${esc(s.name)}<br>Sınıf: <b>${grade}-${s.section}</b> · No: <b>${s.no}</b><br>Şifre: <span class="pin">${s.pin}</span><br><span class="small">🔗 ${esc(siteUrl())}</span><br><span class="small">👪 Veli: ${esc(siteUrl())}veli.html (aynı bilgilerle)</span></div>`).join("")}</div>`, { wide: true });
-    el.querySelector("#pp").onclick = () => { document.body.classList.add("printing"); window.print(); document.body.classList.remove("printing"); };
+      <p class="noprint small muted">Keserek öğrencilere dağıtın.</p><div class="pincards">${studs.map((s) => `<div class="pincard"><b>${SITE.name}</b><br>${esc(s.name)}<br>Sınıf: <b>${grade}-${s.section}</b> · No: <b>${s.no}</b><br>Şifre: <span class="pin">${s.pin}</span><br><span class="url">🔗 ${esc(shortUrl())}</span><span class="url">👪 Veli: ${esc(shortUrl())}veli.html</span></div>`).join("")}</div>`, { wide: true });
+    el.querySelector("#pp").onclick = () => { const h = el.querySelector(".pincards").outerHTML; printHtml(h); };
   };
   $$("[data-rp]").forEach((b) => b.onclick = async () => {
     const s = students.find((x) => x.uid === b.dataset.rp); if (!confirm(`${s.name} için yeni şifre oluşturulsun mu?`)) return;
@@ -676,3 +675,19 @@ function fileImport() {
   };
 }
 const studentKeyOf = (s) => keyFn(s.grade, s.section, s.no);
+
+// ---------------------------------------------------------------- Yazdırma (telefonda da çalışır)
+const shortUrl = () => siteUrl().replace(/^https?:\/\//, "");
+function printHtml(html) {
+  document.querySelectorAll(".modal-back").forEach((m) => m.remove());
+  let area = document.getElementById("printArea");
+  if (!area) { area = document.createElement("div"); area.id = "printArea"; document.body.appendChild(area); }
+  area.innerHTML = html;
+  document.body.classList.add("print-only");
+  const done = () => { document.body.classList.remove("print-only"); window.removeEventListener("afterprint", done); };
+  window.addEventListener("afterprint", done);
+  setTimeout(() => { try { window.print(); } catch { toast("Yazdırma açılamadı. Tarayıcının Paylaş menüsünden Yazdır'ı seçin."); } }, 150);
+  // Bazı telefonlarda afterprint gelmez: ekranda "Kapat" düğmesi göster
+  area.insertAdjacentHTML("afterbegin", `<div class="noprint pr-bar"><span>Yazdırma penceresi açılmadıysa: Safari'de <b>Paylaş ⬆︎ → Yazdır</b>.</span><button class="btn gold sm" id="prClose">Kapat</button></div>`);
+  area.querySelector("#prClose").onclick = done;
+}
