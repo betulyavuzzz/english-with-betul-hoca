@@ -1,10 +1,10 @@
-import { api, isDemo, friendlyError } from "./api.js?v=12";
-import { SITE } from "./config.js?v=12";
-import { SKILLS } from "./defaults.js?v=12";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=12";
-import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=12";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml } from "./game.js?v=12";
-import { wordsHome } from "./words.js?v=12";
+import { api, isDemo, friendlyError } from "./api.js?v=13";
+import { SITE } from "./config.js?v=13";
+import { SKILLS } from "./defaults.js?v=13";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=13";
+import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=13";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml } from "./game.js?v=13";
+import { wordsHome } from "./words.js?v=13";
 
 const app = $("#app");
 let settings = null;

@@ -1,5 +1,5 @@
 // Oyunlaştırma: avatar, XP, seviye, rozetler
-import { esc } from "./ui.js?v=12";
+import { esc } from "./ui.js?v=13";
 
 export const AV_BASES = ["🦊", "🐼", "🐯", "🦁", "🐸", "🐨", "🐰", "🐻", "🐵", "🦄", "🐧", "🐙", "🐶", "🐱", "🐲", "🦉", "🐬", "🦖", "🤖", "👽"];
 export const AV_BGS = [

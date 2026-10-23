@@ -1,9 +1,9 @@
 // =============================================================
 //  Veri katmanı: Firebase (gerçek) veya DEMO (tarayıcı içi)
 // =============================================================
-import { FIREBASE_CONFIG, TEACHER_EMAILS, STUDENT_DOMAIN, DEMO } from "./config.js?v=12";
-import { DEFAULT_SETTINGS } from "./defaults.js?v=12";
-import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js?v=12";
+import { FIREBASE_CONFIG, TEACHER_EMAILS, STUDENT_DOMAIN, DEMO } from "./config.js?v=13";
+import { DEFAULT_SETTINGS } from "./defaults.js?v=13";
+import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js?v=13";
 
 const PIN_PREFIX = "ewbh-";            // Firebase en az 6 karakter istiyor
 const TR = { "İ": "i", "I": "i", "ı": "i", "Ç": "c", "ç": "c", "Ğ": "g", "ğ": "g", "Ö": "o", "ö": "o", "Ş": "s", "ş": "s", "Ü": "u", "ü": "u" };
@@ -67,7 +67,9 @@ function demoBackend() {
     if (!s) return { role: null };
     const d = load();
     if (s.role === "student") { const st = d.students[s.uid]; return st ? { role: "student", uid: s.uid, student: st } : { role: null }; }
-    return { role: "teacher", uid: "teacher", email: s.email };
+    const isAdmin = TEACHER_EMAILS.map((x) => x.toLowerCase()).includes(s.email.toLowerCase()) || !TEACHER_EMAILS.length || s.email === "admin";
+    const t = (d.teachers || {})[s.email.toLowerCase()];
+    return { role: "teacher", uid: "teacher", email: s.email, teacher: { admin: isAdmin || !t, sections: t?.sections || [], name: t?.name || "" } };
   };
   const id = () => Math.random().toString(36).slice(2, 10);
 
@@ -81,6 +83,9 @@ function demoBackend() {
       setSession({ role: "student", uid: st.uid });
     },
     async teacherLogin(email) { setSession({ role: "teacher", email }); },
+    async listTeachers() { return Object.values(load().teachers || {}); },
+    async saveTeacher(t) { const d = load(); d.teachers = d.teachers || {}; d.teachers[t.email] = t; save(d); },
+    async deleteTeacher(email) { const d = load(); delete (d.teachers || {})[email]; save(d); },
     async teacherSignup(email) { setSession({ role: "teacher", email }); },
     async logout() { setSession(null); },
     async getSettings() { return mergeSettings(load().settings); },
@@ -167,7 +172,18 @@ async function firebaseBackend() {
     onAuth(cb) {
       A.onAuthStateChanged(auth, async (u) => {
         if (!u) { state = { role: null }; return cb(state); }
-        if (isTeacherEmail(u.email)) { state = { role: "teacher", uid: u.uid, email: u.email }; return cb(state); }
+        const em = (u.email || "").toLowerCase();
+        if (isTeacherEmail(em)) {
+          let t = null; try { const td = await getDoc(doc(db, "teachers", em)); t = td.exists() ? td.data() : null; } catch {}
+          state = { role: "teacher", uid: u.uid, email: em, teacher: { admin: true, sections: t?.sections || [], name: t?.name || "" } }; return cb(state);
+        }
+        if (!em.endsWith("@" + STUDENT_DOMAIN)) {
+          try {
+            const td = await getDoc(doc(db, "teachers", em));
+            if (td.exists()) { state = { role: "teacher", uid: u.uid, email: em, teacher: { admin: false, ...td.data() } }; return cb(state); }
+          } catch {}
+          await A.signOut(auth); state = { role: null, notTeacher: true }; return cb(state);
+        }
         try {
           const s = await getDoc(doc(db, "students", u.uid));
           state = s.exists() ? { role: "student", uid: u.uid, student: { uid: u.uid, ...s.data() } } : { role: null, orphan: true };
@@ -179,14 +195,11 @@ async function firebaseBackend() {
     async studentLogin({ grade, section, no, pin }) {
       await A.signInWithEmailAndPassword(auth, studentEmail(grade, section, no), PIN_PREFIX + pin);
     },
-    async teacherLogin(email, pw) {
-      if (!isTeacherEmail(email)) throw { message: "Bu e-posta öğretmen olarak tanımlı değil." };
-      await A.signInWithEmailAndPassword(auth, email, pw);
-    },
-    async teacherSignup(email, pw) {
-      if (!isTeacherEmail(email)) throw { message: "Bu e-posta öğretmen olarak tanımlı değil." };
-      await A.createUserWithEmailAndPassword(auth, email, pw);
-    },
+    async teacherLogin(email, pw) { await A.signInWithEmailAndPassword(auth, email.trim().toLowerCase(), pw); },
+    async teacherSignup(email, pw) { await A.createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), pw); },
+    async listTeachers() { return all(collection(db, "teachers")); },
+    async saveTeacher(t) { await setDoc(doc(db, "teachers", t.email), t); },
+    async deleteTeacher(email) { await deleteDoc(doc(db, "teachers", email)); },
     async logout() { await A.signOut(auth); },
     async getSettings() {
       try { const s = await getDoc(doc(db, "settings", "site")); return mergeSettings(s.exists() ? s.data() : null); }

@@ -1,17 +1,19 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=12";
-import { SITE } from "./config.js?v=12";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=12";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=12";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=12";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=12";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=12";
-import { SEED_WORDSETS } from "./seed.js?v=12";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=12";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=13";
+import { SITE } from "./config.js?v=13";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=13";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=13";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=13";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=13";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=13";
+import { SEED_WORDSETS } from "./seed.js?v=13";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=13";
 
 const app = $("#app");
 let settings, grade, view = "home";
 let students = [], assignments = [], submissions = [], feedback = [], profiles = {}, points = [], wordsets = [], practices = [];
 let secFilter = "";
+let me = { admin: true, sections: [] };   // giriş yapan öğretmen
+let teachers = [];
 
 if (isDemo) $("#demoBand").classList.remove("hidden");
 $("#logout").onclick = () => api.logout();
@@ -21,9 +23,13 @@ grade = settings.activeGrades[0] || 5;
 if (location.hash === "#sinif") view = "cls";
 
 api.onAuth(async (s) => {
-  if (s.role === "teacher") { $("#logout").classList.remove("hidden"); await reload(); shell(); }
+  if (s.role === "teacher") {
+    me = s.teacher || { admin: true, sections: [] }; me.email = s.email; if (location.hash !== "#sinif") view = "home";
+    if (!me.admin) { const gs = myGrades(); if (gs.length && !gs.includes(grade)) grade = gs[0]; }
+    $("#logout").classList.remove("hidden"); await reload(); shell();
+  }
   else if (s.role === "student") location.href = "./";
-  else { $("#logout").classList.add("hidden"); login(); }
+  else { $("#logout").classList.add("hidden"); login(s.notTeacher); }
 });
 
 async function reload() {
@@ -33,19 +39,27 @@ async function reload() {
     api.listProfiles(grade).catch(() => []), api.listPoints(grade).catch(() => [])
   ]);
   [wordsets, practices] = await Promise.all([api.listWordsets(grade).catch(() => []), api.listPractice(grade).catch(() => [])]);
-  publishStars().catch((e) => console.warn("Haftanın yıldızları yazılamadı", e));
   profiles = Object.fromEntries(pr.map((p) => [p.uid, p.avatar]));
+  if (!me.admin) {
+    const al = new Set(sections());
+    students = students.filter((s) => al.has(s.section));
+    const uids = new Set(students.map((s) => s.uid));
+    assignments = assignments.filter((a) => a.sections?.some((x) => al.has(x)));
+    submissions = submissions.filter((x) => uids.has(x.uid)); feedback = feedback.filter((x) => uids.has(x.uid));
+    points = points.filter((x) => uids.has(x.uid)); practices = practices.filter((x) => uids.has(x.uid));
+  } else { teachers = await api.listTeachers().catch(() => []); }
+  publishStars().catch((e) => console.warn("Haftanın yıldızları yazılamadı", e));
   students.sort((a, b) => a.section.localeCompare(b.section, "tr") || Number(a.no) - Number(b.no));
 }
 
 // ---------------------------------------------------------------- Giriş
-function login() {
+function login(notTeacher) {
   let signup = false;
   app.innerHTML = `<div class="wrap narrow"><div class="hero"><h1>Öğretmen <span>girişi</span></h1><p>${SITE.name}</p></div>
     <form class="card" id="tf">
       <div class="field"><label>E-posta</label><input id="em" type="email" required autocomplete="username"></div>
       <div class="field"><label>Şifre</label><input id="pw" type="password" required minlength="6" autocomplete="current-password"></div>
-      <div class="err" id="terr"></div>
+      <div class="err" id="terr">${notTeacher ? "Bu e-posta öğretmen olarak tanımlı değil. Yöneticiden (Betül Hoca) eklenmesini isteyin." : ""}</div>
       <button class="btn gold block lg" id="tb">Giriş yap</button>
       <p class="small center" style="margin:14px 0 0"><a href="#" id="sw">İlk kez mi giriyorsunuz? Hesap oluşturun</a></p>
     </form></div>`;
@@ -61,8 +75,8 @@ function login() {
 const NAV = [["home", "🏠", "Genel bakış"], ["cls", "📱", "Sınıf modu"], ["wd", "🃏", "Kelimeler"], ["hw", "📝", "Ödevler"], ["res", "📊", "Sonuçlar"], ["fb", "💬", "Geri bildirim"], ["gb", "📒", "Not defteri"], ["kr", "📄", "Karneler"], ["st", "👥", "Öğrenciler"], ["set", "⚙️", "Ayarlar"]];
 function shell() {
   app.innerHTML = `<div class="tlayout"><nav class="side">
-      <div class="gsel"><select id="gs">${[5, 6, 7, 8].map((g) => `<option value="${g}" ${g === grade ? "selected" : ""}>${g}. sınıflar${settings.activeGrades.includes(g) ? "" : " (kapalı)"}</option>`).join("")}</select></div>
-      ${NAV.map(([k, i, t]) => `<button data-v="${k}">${i} ${t}</button>`).join("")}
+      <div class="gsel"><select id="gs">${(me.admin ? [5, 6, 7, 8] : myGrades()).map((g) => `<option value="${g}" ${g === grade ? "selected" : ""}>${g}. sınıflar${settings.activeGrades.includes(g) ? "" : " (kapalı)"}</option>`).join("")}</select></div>
+      ${NAV.filter(([k]) => me.admin || k !== "set").map(([k, i, t]) => `<button data-v="${k}">${i} ${t}</button>`).join("")}
     </nav><main class="main" id="main"></main></div>`;
   $("#gs").onchange = async (e) => { grade = Number(e.target.value); secFilter = ""; await reload(); draw(); };
   $$(".side [data-v]").forEach((b) => b.onclick = () => { view = b.dataset.v; draw(); });
@@ -74,7 +88,11 @@ function draw() {
   ({ home: vHome, cls: vClass, wd: vWords, kr: vReports, hw: vHw, res: vRes, fb: vFb, gb: vGb, st: vSt, set: vSet })[view](m);
   window.scrollTo(0, 0);
 }
-const sections = () => settings.sections[grade] || [];
+const myKeys = () => (me.sections || []).map((k) => ({ g: Number(String(k).match(/^\d+/)?.[0]), s: String(k).replace(/^\d+-?/, "") }));
+const myGrades = () => [...new Set(myKeys().map((x) => x.g))].sort();
+const mySecs = (g = grade) => myKeys().filter((x) => x.g === g).map((x) => x.s);
+const defaultSecs = () => (!me.admin || teachers.some((t) => !t.admin) ? mySecs() : []);
+const sections = () => (me.admin ? settings.sections[grade] || [] : mySecs());
 const secSelect = (id = "sf", allLabel = "Tüm şubeler") => `<select id="${id}" style="width:auto">${[["", allLabel], ...sections().map((s) => [s, `${grade}-${s}`])].map(([v, t]) => `<option value="${v}" ${v === secFilter ? "selected" : ""}>${t}</option>`).join("")}</select>`;
 const bindSec = (cb) => { const s = $("#sf"); if (s) s.onchange = (e) => { secFilter = e.target.value; cb(); }; };
 const subOf = (aid, uid) => submissions.find((s) => s.assignmentId === aid && s.uid === uid);
@@ -148,10 +166,12 @@ function vHw(m) {
         <td class="c"><button class="btn sm ${a.published ? "" : "ghost"}" data-pub="${a.id}">${a.published ? "Yayında" : "Taslak"}</button></td>
         <td><button class="btn ghost sm" data-msg="${a.id}" title="Duyuru / hatırlatma mesajı">📣</button> <button class="btn ghost sm" data-pv="${a.id}">👁</button> <button class="btn ghost sm" data-ed="${a.id}">✏️</button> <button class="btn ghost sm" data-cp="${a.id}">⧉</button> <button class="btn ghost sm" data-del="${a.id}">🗑</button></td></tr>`; }).join("")}
     </table></div>` : `<div class="card empty"><div class="big">📝</div><p>Henüz ödev yok. "Yeni ödev" ile başlayın${grade === 5 ? " ya da hazır ödevi yükleyin" : ""}.</p></div>`}
-    <p class="small muted">"Taslak" ödevleri öğrenciler görmez. Yayına almak için düğmeye basın.</p>`;
-  $("#nw").onclick = () => editor({ grade, unit: settings.currentUnit[grade] || 1, week: (Math.max(0, ...assignments.map((a) => a.week || 0)) + 1), title: "", description: "", sections: [], dueDate: "", attempts: settings.defaultAttempts, items: [], published: false });
+    <p class="small muted">"Taslak" ödevleri öğrenciler görmez. Yayına almak için düğmeye basın.</p>
+    ${me.admin && teachers.some((t) => !t.admin) && assignments.some((a) => !a.sections?.length) ? `<div class="remind" style="margin-top:12px">⚠️ <div><b>${assignments.filter((a) => !a.sections?.length).length} ödev tüm şubelere açık.</b> Diğer öğretmenin şubelerindeki öğrenciler de bu ödevleri görüyor. ${mySecs().length ? `<button class="btn gold sm" id="fixSecs" style="margin-top:6px">Sadece benim şubelerime (${mySecs().map((x) => grade + "-" + x).join(", ")}) ata</button>` : "Ayarlar → Öğretmenler'den kendi şubelerinizi yazın."}</div></div>` : ""}`;
+  if ($("#fixSecs")) $("#fixSecs").onclick = async () => { for (const a of assignments.filter((a) => !a.sections?.length)) { a.sections = mySecs(); await api.saveAssignment(a); } await reload(); vHw(m); toast("Ödevler sizin şubelerinize atandı", "ok"); };
+  $("#nw").onclick = () => editor({ grade, unit: settings.currentUnit[grade] || 1, week: (Math.max(0, ...assignments.map((a) => a.week || 0)) + 1), title: "", description: "", sections: defaultSecs(), dueDate: "", attempts: settings.defaultAttempts, items: [], published: false });
   if ($("#seed")) $("#seed").onclick = async () => {
-    for (const a of SEED_ASSIGNMENTS) if (!assignments.some((x) => x.title === a.title)) await api.saveAssignment({ ...structuredClone(a), published: false });
+    for (const a of SEED_ASSIGNMENTS) if (!assignments.some((x) => x.title === a.title)) await api.saveAssignment({ ...structuredClone(a), sections: defaultSecs(), published: false });
     await reload(); vHw(m); toast("Hazır ödev taslak olarak eklendi", "ok");
   };
   $("#imp").onclick = importJson;
@@ -170,7 +190,7 @@ function importJson() {
     try {
       let d = JSON.parse(el.querySelector("#js").value);
       if (!Array.isArray(d)) d = [d];
-      for (const a of d) { if (!a.items?.length) throw new Error("Ödevde soru yok"); a.grade = a.grade || grade; a.published = false; delete a.id; await api.saveAssignment(a); }
+      for (const a of d) { if (!a.items?.length) throw new Error("Ödevde soru yok"); a.grade = a.grade || grade; a.published = false; if (!a.sections?.length) a.sections = defaultSecs(); delete a.id; await api.saveAssignment(a); }
       close(); await reload(); draw(); toast(`${d.length} ödev taslak olarak eklendi`, "ok");
     } catch (e) { el.querySelector("#je").textContent = "Kod okunamadı: " + e.message; }
   };
@@ -252,6 +272,7 @@ function editor(a) {
     collect();
     if (!a.title) return toast("Başlık yazın", "bad");
     if (!a.items.length) return toast("En az bir soru ekleyin", "bad");
+    if (!me.admin && !a.sections.length) a.sections = mySecs();
     a.items.forEach((it) => { if (it.options) it.options = it.options.filter((o, k) => o.trim() || k === it.answer); if (it.pairs) it.pairs = it.pairs.filter((p) => p.l.trim() && p.r.trim()); });
     $("#sv").disabled = true;
     try { await api.saveAssignment(a); await reload(); view = "hw"; draw(); toast("Ödev kaydedildi", "ok"); }
@@ -442,7 +463,17 @@ function vSet(m) {
     <div class="card stack"><h3>${grade}. sınıf üniteleri</h3><p class="small muted">Her satır bir ünite. Şu anki ünite yeni ödevlerde varsayılan olarak seçilir.</p>
       <textarea id="un" rows="9">${esc((settings.units[grade] || []).join("\n"))}</textarea>
       <div class="row"><label style="margin:0">Şu anki ünite</label><input type="number" id="cu" min="1" value="${settings.currentUnit[grade] || 1}" style="max-width:90px"></div></div>
-  </div><div class="row" style="margin-top:16px"><button class="btn gold" id="ss">Ayarları kaydet</button>${isDemo ? `<button class="btn danger" id="rd">Deneme verilerini sıfırla</button>` : ""}</div>`;
+  </div>
+  <div class="card stack" style="margin-top:16px"><h3>👩‍🏫 Öğretmenler</h3>
+    <p class="small muted">Başka öğretmen ekleyince o öğretmen sadece kendi şubelerini görür: öğrenciler, ödevler, sonuçlar, geri bildirim ve sınıf modu. Ayarları değiştiremez. Kelime setleri ortaktır. Şubeleri <b>5C, 5H</b> gibi yazın.</p>
+    <div class="row"><b style="min-width:140px">Sizin şubeleriniz</b><input type="text" id="mySecs" placeholder="Örn. 5İ" value="${esc((me.sections || []).join(", "))}" style="flex:1"><button class="btn ghost sm" id="mySave">Kaydet</button></div>
+    <div class="tbl-wrap"><table class="tbl"><tr><th>E-posta</th><th>Ad</th><th>Şubeler</th><th></th></tr>
+      ${teachers.filter((t) => !t.admin).map((t) => `<tr><td>${esc(t.email)}</td><td>${esc(t.name || "")}</td><td>${esc((t.sections || []).join(", "))}</td><td><button class="btn ghost sm" data-tdel="${esc(t.email)}">🗑</button></td></tr>`).join("") || `<tr><td colspan="4" class="muted">Henüz başka öğretmen yok.</td></tr>`}
+    </table></div>
+    <div class="row"><input type="email" id="tEm" placeholder="ogretmen@ornek.com" style="flex:2;min-width:180px"><input type="text" id="tNm" placeholder="Ad Soyad" style="flex:1.5;min-width:120px"><input type="text" id="tSc" placeholder="5C, 5H" style="flex:1;min-width:90px"><button class="btn gold sm" id="tAdd">+ Ekle</button></div>
+    <p class="small muted">Eklediğiniz öğretmen <b>${esc(location.origin + location.pathname)}</b> adresinde "İlk kez mi giriyorsunuz? Hesap oluşturun" ile aynı e-postayla kendi şifresini belirler.</p>
+  </div>
+  <div class="row" style="margin-top:16px"><button class="btn gold" id="ss">Ayarları kaydet</button>${isDemo ? `<button class="btn danger" id="rd">Deneme verilerini sıfırla</button>` : ""}</div>`;
   $("#ss").onclick = async () => {
     const s = structuredClone(settings);
     s.activeGrades = $$("[data-ag]").filter((c) => c.checked).map((c) => Number(c.dataset.ag));
@@ -454,6 +485,18 @@ function vSet(m) {
     s.currentUnit[grade] = Number($("#cu").value) || 1;
     try { await api.saveSettings(s); settings = s; shell(); view = "set"; draw(); toast("Ayarlar kaydedildi", "ok"); } catch (e) { toast(friendlyError(e), "bad"); }
   };
+  const parseSecs = (v) => v.split(/[,;\s]+/).map((x) => x.trim().toUpperCase().replace("-", "").replace(/^(\d+)I$/, "$1İ")).filter((x) => /^\d+\S+$/.test(x));
+  $("#mySave").onclick = async () => {
+    const secs = parseSecs($("#mySecs").value);
+    try { await api.saveTeacher({ email: me.email.toLowerCase(), name: "Yönetici", sections: secs, admin: true }); me.sections = secs; teachers = await api.listTeachers(); toast("Kaydedildi", "ok"); } catch (e) { toast(friendlyError(e), "bad"); }
+  };
+  $("#tAdd").onclick = async () => {
+    const email = $("#tEm").value.trim().toLowerCase(), secs = parseSecs($("#tSc").value);
+    if (!/^\S+@\S+\.\S+$/.test(email)) return toast("Geçerli e-posta yazın", "bad");
+    if (!secs.length) return toast("Şube yazın (örn. 5C, 5H)", "bad");
+    try { await api.saveTeacher({ email, name: $("#tNm").value.trim(), sections: secs, admin: false, addedAt: Date.now() }); teachers = await api.listTeachers(); vSet(m); toast("Öğretmen eklendi", "ok"); } catch (e) { toast(friendlyError(e), "bad"); }
+  };
+  $$("[data-tdel]").forEach((b) => b.onclick = async () => { if (!confirm(b.dataset.tdel + " silinsin mi? Bu öğretmen artık panele giremez.")) return; await api.deleteTeacher(b.dataset.tdel); teachers = await api.listTeachers(); vSet(m); });
   if ($("#rd")) $("#rd").onclick = async () => { if (confirm("Tüm deneme verileri silinsin mi?")) { await api.resetDemo(); location.reload(); } };
 }
 
@@ -651,7 +694,7 @@ function fileImport() {
     const existing = new Set((await api.listStudents()).map((s) => s.key));
     const groups = {};
     all.forEach((s) => { const k = `${s.grade}|${s.section}`; (groups[k] = groups[k] || []).push(s); });
-    const keys = Object.keys(groups).sort((a, b) => { const [g1, s1] = a.split("|"), [g2, s2] = b.split("|"); return g1 - g2 || SEC_ORDER.indexOf(s1) - SEC_ORDER.indexOf(s2); });
+    const keys = Object.keys(groups).filter((k) => me.admin || mySecs(Number(k.split("|")[0])).includes(k.split("|")[1])).sort((a, b) => { const [g1, s1] = a.split("|"), [g2, s2] = b.split("|"); return g1 - g2 || SEC_ORDER.indexOf(s1) - SEC_ORDER.indexOf(s2); });
     el.querySelector("#fbox").innerHTML = `<p><b>${all.length}</b> öğrenci bulundu (${grades.map((g) => g + ". sınıf").join(", ")}). Yüklenecek şubeleri seçin:</p>
       <div class="row" style="gap:6px">${keys.map((k) => { const [g, sec] = k.split("|"); const n = groups[k].filter((s) => !existing.has(studentKeyOf(s))).length; return `<label class="badge" style="margin:0;cursor:pointer;font-size:.9rem"><input type="checkbox" data-k="${k}" ${n ? "checked" : "disabled"} style="width:auto"> ${g}-${sec} <span class="muted">(${n ? n + " yeni" : "hepsi var"})</span></label>`; }).join("")}</div>
       <p class="small muted" style="margin-top:10px">Firebase bir saatte yaklaşık 100 hesap açılmasına izin veriyor. Limit dolarsa bu pencere açık kaldığı sürece 15 dakikada bir kendiliğinden devam eder. Sayfayı kapatırsanız, daha sonra aynı dosyayı tekrar seçmeniz yeterli; eklenmiş olanlar atlanır.</p>
@@ -662,7 +705,7 @@ function fileImport() {
       // ayarlara eksik şubeleri ekle
       const s2 = structuredClone(settings);
       chosen.forEach((k) => { const [g, sec] = k.split("|"); const arr = s2.sections[g] || []; if (!arr.includes(sec)) arr.push(sec); s2.sections[g] = arr.sort((a, b) => SEC_ORDER.indexOf(a) - SEC_ORDER.indexOf(b)); if (!s2.activeGrades.includes(Number(g))) s2.activeGrades.push(Number(g)); });
-      if (JSON.stringify(s2) !== JSON.stringify(settings)) { await api.saveSettings(s2); settings = s2; }
+      if (me.admin && JSON.stringify(s2) !== JSON.stringify(settings)) { await api.saveSettings(s2); settings = s2; }
       const list = chosen.flatMap((k) => groups[k]).map((s) => ({ ...s, grade: Number(s.grade), no: String(s.no) }));
       const btn = el.querySelector("#fgo"); btn.disabled = true;
       const prog = el.querySelector("#fprog");
