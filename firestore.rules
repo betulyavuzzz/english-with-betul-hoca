@@ -15,7 +15,7 @@ service cloud.firestore {
     // Site ayarları: herkes okuyabilir (giriş ekranı için), sadece öğretmen değiştirir
     match /settings/{id} {
       allow read: if true;
-      allow write: if isTeacher();
+      allow write: if isAdmin();
     }
     // Öğrenci kayıtları: öğrenci sadece kendini görür
     match /students/{uid} {
