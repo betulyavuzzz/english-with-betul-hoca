@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=13";
-import { SITE } from "./config.js?v=13";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=13";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=13";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=13";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=13";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=13";
-import { SEED_WORDSETS } from "./seed.js?v=13";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=13";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=14";
+import { SITE } from "./config.js?v=14";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=14";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=14";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=14";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=14";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=14";
+import { SEED_WORDSETS } from "./seed.js?v=14";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=14";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -14,6 +14,7 @@ let students = [], assignments = [], submissions = [], feedback = [], profiles =
 let secFilter = "";
 let me = { admin: true, sections: [] };   // giriş yapan öğretmen
 let teachers = [];
+let pool = [];   // başka öğretmenlerin / diğer şubelerin ödevleri (havuz)
 
 if (isDemo) $("#demoBand").classList.remove("hidden");
 $("#logout").onclick = () => api.logout();
@@ -44,10 +45,11 @@ async function reload() {
     const al = new Set(sections());
     students = students.filter((s) => al.has(s.section));
     const uids = new Set(students.map((s) => s.uid));
+    pool = assignments.filter((a) => !a.sections?.some((x) => al.has(x)));
     assignments = assignments.filter((a) => a.sections?.some((x) => al.has(x)));
     submissions = submissions.filter((x) => uids.has(x.uid)); feedback = feedback.filter((x) => uids.has(x.uid));
     points = points.filter((x) => uids.has(x.uid)); practices = practices.filter((x) => uids.has(x.uid));
-  } else { teachers = await api.listTeachers().catch(() => []); }
+  } else { teachers = await api.listTeachers().catch(() => []); pool = []; }
   publishStars().catch((e) => console.warn("Haftanın yıldızları yazılamadı", e));
   students.sort((a, b) => a.section.localeCompare(b.section, "tr") || Number(a.no) - Number(b.no));
 }
@@ -161,13 +163,15 @@ function vHw(m) {
       <button class="btn gold" id="nw">+ Yeni ödev</button></div></div>
     ${assignments.length ? `<div class="tbl-wrap"><table class="tbl"><tr><th>Hafta</th><th>Ödev</th><th>Ünite</th><th>Şubeler</th><th>Son gün</th><th class="c">Yapan</th><th class="c">Durum</th><th></th></tr>
       ${assignments.map((a) => { const n = submissions.filter((s) => s.assignmentId === a.id).length; const t = students.filter((s) => forSec(a, s.section)).length; return `<tr>
-        <td class="c">${a.week || "–"}</td><td><b>${esc(a.title)}</b><br><span class="small muted">${a.items.length} soru</span></td><td class="small">${a.unit}. ${esc(unitName(a.unit))}</td>
+        <td class="c">${a.week || "–"}</td><td><b>${esc(a.title)}</b><br><span class="small muted">${a.items.length} soru${a.createdByName && a.createdBy !== me.email ? ` · ${esc(a.createdByName)}` : ""}</span></td><td class="small">${a.unit}. ${esc(unitName(a.unit))}</td>
         <td class="small">${a.sections?.length ? a.sections.join(", ") : "Hepsi"}</td><td class="small">${a.dueDate ? fmtDate(a.dueDate) : "–"}</td><td class="c">${n}/${t}</td>
         <td class="c"><button class="btn sm ${a.published ? "" : "ghost"}" data-pub="${a.id}">${a.published ? "Yayında" : "Taslak"}</button></td>
         <td><button class="btn ghost sm" data-msg="${a.id}" title="Duyuru / hatırlatma mesajı">📣</button> <button class="btn ghost sm" data-pv="${a.id}">👁</button> <button class="btn ghost sm" data-ed="${a.id}">✏️</button> <button class="btn ghost sm" data-cp="${a.id}">⧉</button> <button class="btn ghost sm" data-del="${a.id}">🗑</button></td></tr>`; }).join("")}
     </table></div>` : `<div class="card empty"><div class="big">📝</div><p>Henüz ödev yok. "Yeni ödev" ile başlayın${grade === 5 ? " ya da hazır ödevi yükleyin" : ""}.</p></div>`}
     <p class="small muted">"Taslak" ödevleri öğrenciler görmez. Yayına almak için düğmeye basın.</p>
-    ${me.admin && teachers.some((t) => !t.admin) && assignments.some((a) => !a.sections?.length) ? `<div class="remind" style="margin-top:12px">⚠️ <div><b>${assignments.filter((a) => !a.sections?.length).length} ödev tüm şubelere açık.</b> Diğer öğretmenin şubelerindeki öğrenciler de bu ödevleri görüyor. ${mySecs().length ? `<button class="btn gold sm" id="fixSecs" style="margin-top:6px">Sadece benim şubelerime (${mySecs().map((x) => grade + "-" + x).join(", ")}) ata</button>` : "Ayarlar → Öğretmenler'den kendi şubelerinizi yazın."}</div></div>` : ""}`;
+    ${!me.admin ? `<div class="card" style="margin-top:18px"><h3>📚 Ödev havuzu</h3><p class="small muted" style="margin-top:-6px">Diğer öğretmenlerin hazırladığı ödevler. Önizleyin, beğendiğinizi "Sınıfıma ata" ile kendi şubelerinize kopyalayın; son günü ve yayın durumunu siz belirlersiniz.</p>
+      ${pool.length ? `<div class="tbl-wrap"><table class="tbl"><tr><th>Ödev</th><th>Ünite</th><th>Hazırlayan</th><th></th></tr>${pool.map((a) => { const taken = assignments.some((x) => x.sourceId === a.id); return `<tr><td><b>${esc(a.title)}</b><br><span class="small muted">${a.items.length} soru</span></td><td class="small">${a.unit}. ${esc(unitName(a.unit))}</td><td class="small">${esc(a.createdByName || "Betül Hoca")}</td><td><button class="btn ghost sm" data-ppv="${a.id}">👁 Önizle</button> ${taken ? `<span class="badge great">✓ Atandı</span>` : `<button class="btn gold sm" data-take="${a.id}">➕ Sınıfıma ata</button>`}</td></tr>`; }).join("")}</table></div>` : `<p class="muted small">Havuzda henüz ödev yok.</p>`}</div>` : ""}
+    ${me.admin && teachers.some((t) => !t.admin) && assignments.some((a) => !a.sections?.length) ? `<div class="remind" style="margin-top:12px">⚠️ <div><b>${assignments.filter((a) => !a.sections?.length).length} ödev tüm şubelere açık.</b> Diğer öğretmenin şubelerindeki öğrenciler de bu ödevleri görüyor. Kendi şubenize atasanız da diğer öğretmen bu ödevleri <b>Ödev havuzu</b>'ndan görüp kendi sınıfına atayabilir. ${mySecs().length ? `<button class="btn gold sm" id="fixSecs" style="margin-top:6px">Sadece benim şubelerime (${mySecs().map((x) => grade + "-" + x).join(", ")}) ata</button>` : "Ayarlar → Öğretmenler'den kendi şubelerinizi yazın."}</div></div>` : ""}`;
   if ($("#fixSecs")) $("#fixSecs").onclick = async () => { for (const a of assignments.filter((a) => !a.sections?.length)) { a.sections = mySecs(); await api.saveAssignment(a); } await reload(); vHw(m); toast("Ödevler sizin şubelerinize atandı", "ok"); };
   $("#nw").onclick = () => editor({ grade, unit: settings.currentUnit[grade] || 1, week: (Math.max(0, ...assignments.map((a) => a.week || 0)) + 1), title: "", description: "", sections: defaultSecs(), dueDate: "", attempts: settings.defaultAttempts, items: [], published: false });
   if ($("#seed")) $("#seed").onclick = async () => {
@@ -179,6 +183,12 @@ function vHw(m) {
   $$("[data-ed]").forEach((b) => b.onclick = () => editor(structuredClone(assignments.find((x) => x.id === b.dataset.ed))));
   $$("[data-cp]").forEach((b) => b.onclick = () => { const a = structuredClone(assignments.find((x) => x.id === b.dataset.cp)); delete a.id; delete a.createdAt; a.title += " (kopya)"; a.published = false; editor(a); });
   $$("[data-pv]").forEach((b) => b.onclick = () => preview(assignments.find((x) => x.id === b.dataset.pv)));
+  $$("[data-ppv]").forEach((b) => b.onclick = () => preview(pool.find((x) => x.id === b.dataset.ppv)));
+  $$("[data-take]").forEach((b) => b.onclick = () => {
+    const src = pool.find((x) => x.id === b.dataset.take); const a = structuredClone(src);
+    delete a.id; delete a.createdAt; Object.assign(a, { sourceId: src.id, sections: mySecs(), published: false, dueDate: "", createdBy: me.email, createdByName: me.name || "" });
+    editor(a); toast("Kopyalandı. Son günü seçip kaydedin, sonra yayına alın.");
+  });
   $$("[data-msg]").forEach((b) => b.onclick = () => messages(assignments.find((x) => x.id === b.dataset.msg)));
   $$("[data-del]").forEach((b) => b.onclick = async () => { if (!confirm("Bu ödev silinsin mi? Öğrenci cevapları kalır ama ödev listeden kalkar.")) return; await api.deleteAssignment(b.dataset.del); await reload(); vHw(m); });
 }
@@ -273,6 +283,7 @@ function editor(a) {
     if (!a.title) return toast("Başlık yazın", "bad");
     if (!a.items.length) return toast("En az bir soru ekleyin", "bad");
     if (!me.admin && !a.sections.length) a.sections = mySecs();
+    if (!a.createdBy) { a.createdBy = me.email || ""; a.createdByName = me.name || (me.admin ? SITE.teacher : ""); }
     a.items.forEach((it) => { if (it.options) it.options = it.options.filter((o, k) => o.trim() || k === it.answer); if (it.pairs) it.pairs = it.pairs.filter((p) => p.l.trim() && p.r.trim()); });
     $("#sv").disabled = true;
     try { await api.saveAssignment(a); await reload(); view = "hw"; draw(); toast("Ödev kaydedildi", "ok"); }
