@@ -1,9 +1,9 @@
 // =============================================================
 //  Veri katmanı: Firebase (gerçek) veya DEMO (tarayıcı içi)
 // =============================================================
-import { FIREBASE_CONFIG, TEACHER_EMAILS, STUDENT_DOMAIN, DEMO } from "./config.js?v=16";
-import { DEFAULT_SETTINGS } from "./defaults.js?v=16";
-import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js?v=16";
+import { FIREBASE_CONFIG, TEACHER_EMAILS, STUDENT_DOMAIN, DEMO } from "./config.js?v=17";
+import { DEFAULT_SETTINGS } from "./defaults.js?v=17";
+import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js?v=17";
 
 const PIN_PREFIX = "ewbh-";            // Firebase en az 6 karakter istiyor
 const TR = { "İ": "i", "I": "i", "ı": "i", "Ç": "c", "ç": "c", "Ğ": "g", "ğ": "g", "Ö": "o", "ö": "o", "Ş": "s", "ş": "s", "Ü": "u", "ü": "u" };
