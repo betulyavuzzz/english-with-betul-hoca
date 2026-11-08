@@ -1,5 +1,5 @@
 // Etkinlik oynatıcı ve puanlama
-import { esc, shuffle, speak } from "./ui.js?v=15";
+import { esc, shuffle, speak } from "./ui.js?v=16";
 
 export const itemPoints = (it) => (it.type === "write" ? Number(it.points || 3) : Number(it.points || 1));
 
@@ -10,7 +10,9 @@ export function scoreItem(it, ans) {
     case "tf": return ans === it.answer ? 1 : 0;
     case "match": { const n = it.pairs.length; let c = 0; for (let i = 0; i < n; i++) if (ans[i] === i) c++; return c / n; }
     case "order": return norm(ans.join(" ")) === norm(it.words.join(" ")) ? 1 : 0;
-    case "type": return (it.accept || []).some((a) => normT(a) === normT(ans)) ? 1 : 0;
+    case "type":
+      if ((it.accept || []).some((a) => normT(a) === normT(ans))) return 1;
+      return (it.patterns || []).some((r) => { try { return new RegExp(r, "i").test(normT(ans)); } catch { return false; } }) ? 1 : 0;
     default: return 0;
   }
 }
@@ -55,7 +57,7 @@ export function correctText(it) {
     case "tf": return it.answer ? "True" : "False";
     case "match": return it.pairs.map((p) => `${p.l} → ${p.r}`).join(", ");
     case "order": return it.words.join(" ");
-    case "type": return (it.accept || [])[0] || "";
+    case "type": return it.example || (it.accept || [])[0] || "";
     default: return "";
   }
 }
