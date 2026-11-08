@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=14";
-import { SITE } from "./config.js?v=14";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=14";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=14";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=14";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=14";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=14";
-import { SEED_WORDSETS } from "./seed.js?v=14";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=14";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=15";
+import { SITE } from "./config.js?v=15";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=15";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=15";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=15";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=15";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=15";
+import { SEED_WORDSETS } from "./seed.js?v=15";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=15";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -222,6 +222,7 @@ function editor(a) {
     fill: { type: "fill", skill: "G", prompt: "Choose the correct word.", text: "", options: ["", "", ""], answer: 0 },
     match: { type: "match", skill: "V", prompt: "Match.", pairs: [{ l: "", r: "" }, { l: "", r: "" }, { l: "", r: "" }, { l: "", r: "" }] },
     order: { type: "order", skill: "G", prompt: "Put the words in order.", words: [] },
+    type: { type: "type", skill: "W", prompt: "", text: "", accept: [] },
     write: { type: "write", skill: "W", prompt: "", minWords: 5, points: 3 }
   };
   const itemHtml = (it, i) => {
@@ -234,6 +235,7 @@ function editor(a) {
     if (it.type === "tf") body = `<div class="row"><input type="text" data-f="prompt" placeholder="İfade" value="${esc(it.prompt)}"><input type="text" data-f="emoji" placeholder="Emoji" value="${esc(it.emoji || "")}" style="max-width:120px"><select data-f="answer" style="max-width:140px"><option value="true" ${it.answer ? "selected" : ""}>Doğru (True)</option><option value="false" ${!it.answer ? "selected" : ""}>Yanlış (False)</option></select></div>`;
     if (it.type === "match") body = `<input type="text" data-f="prompt" value="${esc(it.prompt)}">${it.pairs.map((p, k) => `<div class="row" style="margin-top:6px"><input type="text" data-pl="${k}" placeholder="Sol (kelime)" value="${esc(p.l)}"><span>↔</span><input type="text" data-pr="${k}" placeholder="Sağ (resim/anlam)" value="${esc(p.r)}"></div>`).join("")}<button class="btn ghost sm" data-addpair style="margin-top:6px">+ çift</button>`;
     if (it.type === "order") body = `<input type="text" data-f="prompt" value="${esc(it.prompt)}"><input type="text" data-words placeholder="Doğru cümle (kelimeler karışık gösterilir)" value="${esc((it.words || []).join(" "))}" style="margin-top:6px">`;
+    if (it.type === "type") body = `<input type="text" data-f="prompt" placeholder="Yönerge / soru" value="${esc(it.prompt)}"><input type="text" data-f="text" placeholder="Cümle (boşluk için ___) — isteğe bağlı" value="${esc(it.text || "")}" style="margin-top:6px"><input type="text" data-acc placeholder="Kabul edilen cevaplar, | ile ayırın: play football | play basketball" value="${esc((it.accept || []).join(" | "))}" style="margin-top:6px">`;
     if (it.type === "write") body = `<input type="text" data-f="prompt" placeholder="Yazma görevi" value="${esc(it.prompt)}"><div class="row" style="margin-top:6px"><label class="small" style="margin:0">En az kelime</label><input type="number" data-f="minWords" value="${it.minWords || 1}" style="max-width:90px"><label class="small" style="margin:0">Puan</label><input type="number" data-f="points" value="${it.points || 3}" style="max-width:90px"></div>`;
     return `<div class="item-ed" data-i="${i}"><div class="row between" style="margin-bottom:8px"><span><span class="tag">${i + 1}</span> <b>${ITEM_TYPES[it.type]}</b></span>
       <span class="row" style="gap:6px">${skillSel}<button class="btn ghost sm" data-up>↑</button><button class="btn ghost sm" data-dn>↓</button><button class="btn ghost sm" data-rm>🗑</button></span></div>${body}</div>`;
@@ -275,6 +277,7 @@ function editor(a) {
       if (it.options) { it.options = [...box.querySelectorAll("[data-opt]")].map((x) => x.value); const r = box.querySelector("[data-ans]:checked"); it.answer = r ? Number(r.dataset.ans) : 0; }
       if (it.pairs) it.pairs = [...box.querySelectorAll("[data-pl]")].map((x, k) => ({ l: x.value, r: box.querySelector(`[data-pr="${k}"]`).value }));
       const w = box.querySelector("[data-words]"); if (w) it.words = w.value.trim().split(/\s+/).filter(Boolean);
+      const ac = box.querySelector("[data-acc]"); if (ac) it.accept = ac.value.split("|").map((x) => x.trim()).filter(Boolean);
       if (!it.emoji) delete it.emoji;
     });
   };

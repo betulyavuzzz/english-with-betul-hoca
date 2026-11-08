@@ -32,6 +32,7 @@ export const ITEM_TYPES = {
   fill: "Boşluk doldurma",
   match: "Eşleştirme",
   order: "Cümle kurma",
+  type: "Yazarak cevapla (otomatik)",
   write: "Yazma (öğretmen puanlar)"
 };
 

@@ -1,5 +1,5 @@
 // Etkinlik oynatıcı ve puanlama
-import { esc, shuffle, speak } from "./ui.js?v=14";
+import { esc, shuffle, speak } from "./ui.js?v=15";
 
 export const itemPoints = (it) => (it.type === "write" ? Number(it.points || 3) : Number(it.points || 1));
 
@@ -10,10 +10,13 @@ export function scoreItem(it, ans) {
     case "tf": return ans === it.answer ? 1 : 0;
     case "match": { const n = it.pairs.length; let c = 0; for (let i = 0; i < n; i++) if (ans[i] === i) c++; return c / n; }
     case "order": return norm(ans.join(" ")) === norm(it.words.join(" ")) ? 1 : 0;
+    case "type": return (it.accept || []).some((a) => normT(a) === normT(ans)) ? 1 : 0;
     default: return 0;
   }
 }
 const norm = (s) => s.toLowerCase().replace(/\s+/g, " ").trim();
+// Yazarak cevap: büyük/küçük harf, noktalama ve fazla boşluk önemsiz
+const normT = (s) => String(s ?? "").toLocaleLowerCase("en").replace(/[’`]/g, "'").replace(/[.,!?;:"]/g, " ").replace(/\s+/g, " ").trim();
 
 export function computeResult(a, answers, writingPoints = null) {
   let auto = 0, autoTotal = 0, writeTotal = 0;
@@ -32,6 +35,7 @@ export function computeResult(a, answers, writingPoints = null) {
 // Soru metni (öğretmen incelemesi ve önizleme için)
 export function itemSummary(it) {
   if (it.type === "fill") return `${it.text}`;
+  if (it.type === "type") return `${it.prompt || ""} ${it.text || ""}`.trim();
   if (it.type === "listen") return `🔊 "${it.audio}" — ${it.prompt}`;
   return `${it.emoji ? it.emoji + " " : ""}${it.prompt || ""}`;
 }
@@ -42,7 +46,7 @@ export function answerText(it, ans) {
     case "tf": return ans ? "True" : "False";
     case "match": return it.pairs.map((p, i) => `${p.l} → ${it.pairs[ans[i]]?.r ?? "?"}`).join(", ");
     case "order": return ans.join(" ");
-    case "write": return ans;
+    case "write": case "type": return ans;
   }
 }
 export function correctText(it) {
@@ -51,6 +55,7 @@ export function correctText(it) {
     case "tf": return it.answer ? "True" : "False";
     case "match": return it.pairs.map((p) => `${p.l} → ${p.r}`).join(", ");
     case "order": return it.words.join(" ");
+    case "type": return (it.accept || [])[0] || "";
     default: return "";
   }
 }
@@ -122,11 +127,13 @@ export function play(root, a, { onFinish, onExit, practice = false }) {
       card.querySelectorAll(".mleft").forEach((b) => b.classList.add(answers[idx][Number(b.dataset.i)] === Number(b.dataset.i) ? "right" : "wrong"));
     }
     if (it.type === "order") card.querySelector(".order-ans").classList.add(scoreItem(it, answers[idx]) ? "right" : "wrong");
+    if (it.type === "type") { const i = card.querySelector(".type-in"); i.readOnly = true; i.classList.add(scoreItem(it, answers[idx]) ? "right" : "wrong"); }
   }
 
   function render() {
     const it = a.items[idx];
-    const head = (txt) => `<div class="qprompt">${it.emoji ? `<div class="qemoji">${it.emoji}</div>` : ""}<p>${esc(txt)}</p></div>`;
+    const passage = it.passage ? `<div class="passage">📖 ${esc(it.passage)}</div>` : "";
+    const head = (txt) => `${passage}<div class="qprompt">${it.emoji ? `<div class="qemoji">${it.emoji}</div>` : ""}<p>${esc(txt)}</p></div>`;
     if (it.type === "mcq" || it.type === "listen" || it.type === "fill") {
       const order = shuffle(it.options.map((_, i) => i));
       let top = head(it.prompt || "");
@@ -194,6 +201,12 @@ export function play(root, a, { onFinish, onExit, practice = false }) {
         enable(answers[idx].length === it.words.length);
       };
       draw();
+    } else if (it.type === "type") {
+      frame(`${head(it.prompt)}${it.text ? `<p class="fill-text center">${esc(it.text).replace("___", '<span class="blank">______</span>')}</p>` : ""}<input type="text" class="type-in" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Cevabını yaz…">`, false);
+      const inp = root.querySelector(".type-in");
+      inp.oninput = () => { answers[idx] = inp.value; enable(inp.value.trim().length > 0); };
+      inp.onkeydown = (e) => { if (e.key === "Enter" && inp.value.trim()) root.querySelector("[data-next]").click(); };
+      setTimeout(() => inp.focus(), 50);
     } else if (it.type === "write") {
       frame(`${head(it.prompt)}<textarea class="write" rows="6" placeholder="Write here… (İngilizce yaz)"></textarea><div class="wc">0 kelime</div>`, false);
       const ta = root.querySelector("textarea");
