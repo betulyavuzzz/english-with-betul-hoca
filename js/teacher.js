@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=22";
-import { SITE } from "./config.js?v=22";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=22";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=22";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=22";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=22";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=22";
-import { SEED_WORDSETS } from "./seed.js?v=22";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=22";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=23";
+import { SITE } from "./config.js?v=23";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=23";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=23";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=23";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=23";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=23";
+import { SEED_WORDSETS } from "./seed.js?v=23";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=23";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -138,13 +138,13 @@ function vHome(m) {
       <div class="kpi"><b>${studs.length}</b><span>öğrenci</span></div>
       <div class="kpi"><b>${pub.length}</b><span>yayındaki ödev</span></div>
       <div class="kpi"><b>${avg(allP) ?? "–"}</b><span>genel ortalama</span></div>
-      <div class="kpi"><b>${writePending}</b><span>puanlanacak yazma</span>${writePending ? `<button class="btn gold sm" id="autoW" style="margin-top:6px">🤖 Otomatik puanla</button>` : ""}</div>
+      <div class="kpi" ${writePending ? `id="autoWBox" style="cursor:pointer;outline:3px solid var(--gold)"` : ""}><b>${writePending}</b><span>puanlanacak yazma</span>${writePending ? `<button class="btn gold sm" id="autoW" style="margin-top:6px">🤖 Otomatik puanla</button>` : ""}</div>
     </div>
     ${!students.length ? `<div class="card empty"><div class="big">👥</div><p>Önce öğrencileri ekleyin.</p><button class="btn gold" onclick="document.querySelector('[data-v=st]').click()">Öğrenci ekle</button></div>` : ""}
     ${!assignments.length ? `<div class="card empty"><div class="big">📝</div><p>Henüz ödev yok.</p><button class="btn gold" onclick="document.querySelector('[data-v=hw]').click()">Ödev ekle</button></div>` : ""}
     <div class="grid">${starsPreview()}${lastRow}${skillCard(studs)}</div>`;
   const aw = $("#autoW");
-  if (aw) aw.onclick = async () => {
+  if (aw) $("#autoWBox").onclick = async () => { if (aw.disabled) return;
     if (!confirm(`${writePending} yazma cevabı otomatik puanlansın mı? (Yeterli uzunlukta İngilizce yazana tam puan; kısa, Türkçe ya da tekrar eden cevaba düşük puan. Sonra Sonuçlar'dan değiştirebilirsiniz.)`)) return;
     aw.disabled = true; let n = 0;
     for (const sub of submissions.filter((s) => s.writeTotal && !s.writingGraded)) {
