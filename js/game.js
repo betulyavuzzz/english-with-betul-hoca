@@ -1,7 +1,7 @@
 // Oyunlaştırma: avatar, XP, seviye, rozetler
-import { esc } from "./ui.js?v=20";
+import { esc } from "./ui.js?v=21";
 
-export const AV_BASES = ["🦊", "🐼", "🐯", "🦁", "🐸", "🐨", "🐰", "🐻", "🐵", "🦄", "🐧", "🐙", "🐶", "🐱", "🐲", "🦉", "🐬", "🦖", "🤖", "👽"];
+export const AV_BASES = ["🦊", "🐼", "🐯", "🦁", "🐸", "🐨", "🐰", "🐻", "🐵", "🦄", "🐧", "🐙", "🐶", "🐱", "🐲", "🦉", "🐬", "🦖", "🤖", "👽", "🐹", "🐣", "🐮", "🦝", "🐭"];
 export const AV_BGS = [
   ["#ff9a8b", "#ff6a88"], ["#a1c4fd", "#c2e9fb"], ["#84fab0", "#8fd3f4"], ["#fbc2eb", "#a6c1ee"],
   ["#fddb92", "#f6a04d"], ["#c3a6ff", "#7f7fd5"], ["#43e97b", "#38f9d7"], ["#142850", "#2b4c8c"],
@@ -9,14 +9,18 @@ export const AV_BGS = [
 ];
 // ---- Kilitli avatar eşyaları ----
 // req: { lv } seviye · { hw } ödev sayısı · { perfect } 100 alınan ödev · { games } kelime oyunu
-//      { plus } ders içi artı · { star } haftanın yıldızı · { streak } ödev serisi · { badges } rozet sayısı
+//      { plus } ders içi artı · { star } haftanın yıldızı · { streak } ödev serisi · { badges } rozet sayısı · { fix } tekrar kutusunda düzeltilen
 export const LOCKED_BASES = [
   { e: "🐉", n: "Ejderha", req: { lv: 3 } }, { e: "🦩", n: "Flamingo", req: { hw: 3 } }, { e: "🐳", n: "Balina", req: { games: 5 } },
   { e: "🦕", n: "Dinozor", req: { lv: 4 } }, { e: "🦜", n: "Papağan", req: { plus: 5 } }, { e: "🐝", n: "Arı", req: { hw: 5 } },
   { e: "🦈", n: "Köpekbalığı", req: { streak: 3 } }, { e: "🐺", n: "Kurt", req: { lv: 5 } }, { e: "🧚", n: "Peri", req: { perfect: 1 } },
   { e: "🥷", n: "Ninja", req: { games: 15 } }, { e: "🧙", n: "Büyücü", req: { lv: 6 } }, { e: "🧑‍🚀", n: "Astronot", req: { hw: 10 } },
   { e: "🦸", n: "Süper Kahraman", req: { star: 1 } }, { e: "👸", n: "Prenses", req: { plus: 15 } }, { e: "🤴", n: "Prens", req: { plus: 15 } },
-  { e: "🦚", n: "Tavus kuşu", req: { lv: 8 } }, { e: "🦅", n: "Kartal", req: { streak: 6 } }, { e: "🐆", n: "Çita", req: { badges: 6 } }
+  { e: "🦚", n: "Tavus kuşu", req: { lv: 8 } }, { e: "🦅", n: "Kartal", req: { streak: 6 } }, { e: "🐆", n: "Çita", req: { badges: 6 } },
+  { e: "🦦", n: "Su samuru", req: { fix: 5 } }, { e: "🐢", n: "Kaplumbağa", req: { hw: 7 } }, { e: "🐞", n: "Uğur böceği", req: { plus: 10 } },
+  { e: "🦔", n: "Kirpi", req: { fix: 15 } }, { e: "🦥", n: "Tembel hayvan", req: { games: 20 } }, { e: "🧜", n: "Deniz kızı", req: { perfect: 3 } },
+  { e: "🦭", n: "Fok", req: { streak: 8 } }, { e: "🐘", n: "Fil", req: { hw: 15 } }, { e: "🧛", n: "Vampir", req: { lv: 7 } },
+  { e: "🦒", n: "Zürafa", req: { badges: 10 } }, { e: "🤠", n: "Kovboy", req: { lv: 9 } }, { e: "🧞", n: "Cin", req: { lv: 10 } }
 ];
 export const LOCKED_BGS = [
   { c: ["#0f0c29", "#302b63"], n: "Galaksi", fx: "stars", req: { lv: 3 } },
@@ -26,7 +30,12 @@ export const LOCKED_BGS = [
   { c: ["#ff0844", "#ffb199"], n: "Ateş", req: { streak: 4 } },
   { c: ["#e0c3fc", "#8ec5fc"], n: "Pamuk", req: { perfect: 1 } },
   { c: ["#f6d365", "#fda085"], n: "Altın", fx: "shine", req: { star: 1 } },
-  { c: ["#ff0000", "#ffa500"], n: "Gökkuşağı", fx: "rainbow", req: { lv: 7 } }
+  { c: ["#ff0000", "#ffa500"], n: "Gökkuşağı", fx: "rainbow", req: { lv: 7 } },
+  { c: ["#134e5e", "#71b280"], n: "Orman", req: { fix: 10 } },
+  { c: ["#f12711", "#f5af19"], n: "Lav", req: { perfect: 3 } },
+  { c: ["#00c9ff", "#92fe9d"], n: "Kuzey ışıkları", req: { lv: 9 } },
+  { c: ["#141e30", "#243b55"], n: "Gece", req: { streak: 6 } },
+  { c: ["#142850", "#c9a227"], n: "Kocatepe", req: { badges: 12 } }
 ];
 export const AV_ACCS = [
   { e: "", n: "Yok", req: {} },
@@ -38,7 +47,11 @@ export const AV_ACCS = [
   { e: "🎓", n: "Kep", req: { lv: 5 } }, { e: "🌈", n: "Gökkuşağı", req: { badges: 5 } },
   { e: "🔥", n: "Alev", req: { plus: 12 } }, { e: "⭐", n: "Yıldız", req: { lv: 6 } },
   { e: "🌟", n: "Parlayan Yıldız", req: { star: 1 } }, { e: "💎", n: "Elmas", req: { hw: 12 } },
-  { e: "🪐", n: "Gezegen", req: { games: 25 } }, { e: "👑", n: "Taç", req: { lv: 8 } }
+  { e: "🪐", n: "Gezegen", req: { games: 25 } }, { e: "👑", n: "Taç", req: { lv: 8 } },
+  { e: "🍓", n: "Çilek", req: { fix: 3 } }, { e: "🎈", n: "Balon", req: { hw: 4 } }, { e: "🍩", n: "Donut", req: { plus: 8 } },
+  { e: "🌻", n: "Ayçiçeği", req: { games: 10 } }, { e: "🐾", n: "Pati", req: { streak: 5 } }, { e: "🪄", n: "Sihirli değnek", req: { perfect: 2 } },
+  { e: "🌙", n: "Ay", req: { lv: 7 } }, { e: "🪩", n: "Disko topu", req: { badges: 8 } }, { e: "❄️", n: "Kar tanesi", req: { fix: 20 } },
+  { e: "🔮", n: "Kristal küre", req: { lv: 9 } }
 ];
 // Yan eşya (avatarın sağ altında)
 export const AV_SIDES = [
@@ -50,7 +63,11 @@ export const AV_SIDES = [
   { e: "🛹", n: "Kaykay", req: { streak: 2 } }, { e: "🔭", n: "Teleskop", req: { lv: 4 } },
   { e: "🎯", n: "Hedef", req: { perfect: 1 } }, { e: "🚀", n: "Roket", req: { games: 12 } },
   { e: "🏆", n: "Kupa", req: { star: 1 } }, { e: "🦄", n: "Mini unicorn", req: { badges: 4 } },
-  { e: "💰", n: "Hazine", req: { lv: 7 } }
+  { e: "💰", n: "Hazine", req: { lv: 7 } },
+  { e: "🪁", n: "Uçurtma", req: { streak: 4 } }, { e: "🏓", n: "Raket", req: { plus: 6 } }, { e: "🎹", n: "Piyano", req: { hw: 6 } },
+  { e: "🥁", n: "Davul", req: { games: 6 } }, { e: "🧩", n: "Yapboz", req: { fix: 8 } }, { e: "📷", n: "Kamera", req: { lv: 5 } },
+  { e: "🎻", n: "Keman", req: { perfect: 2 } }, { e: "🍕", n: "Pizza", req: { lv: 6 } }, { e: "🧪", n: "Deney tüpü", req: { badges: 7 } },
+  { e: "🗝️", n: "Altın anahtar", req: { lv: 10 } }
 ];
 // Çerçeve efektleri
 export const AV_FRAMES = [
@@ -61,10 +78,14 @@ export const AV_FRAMES = [
   { id: "sparkle", n: "Işıltı ✨", req: { perfect: 1 } },
   { id: "fire", n: "Alev halkası", req: { streak: 5 } },
   { id: "gold", n: "Altın çerçeve", req: { star: 1 } },
-  { id: "rainbow", n: "Gökkuşağı", req: { lv: 6 } }
+  { id: "rainbow", n: "Gökkuşağı", req: { lv: 6 } },
+  { id: "hearts", n: "Kalpler 💖", req: { plus: 12 } },
+  { id: "ice", n: "Buz halkası", req: { fix: 12 } },
+  { id: "neon", n: "Neon", req: { badges: 9 } },
+  { id: "crown", n: "Kral tacı 👑", req: { lv: 9 } }
 ];
-const REQ_TXT = { lv: (n) => `Lv${n}`, hw: (n) => `${n} ödev`, perfect: () => "💯", games: (n) => `${n} oyun`, plus: (n) => `+${n}`, star: () => "⭐ yıldız", streak: (n) => `🔥${n} seri`, badges: (n) => `${n} rozet` };
-const REQ_LONG = { lv: (n) => `${n}. seviyeye ulaş`, hw: (n) => `${n} ödev tamamla`, perfect: () => "bir ödevden 100 al", games: (n) => `${n} kelime oyunu oyna`, plus: (n) => `derste ${n} artı puan topla`, star: () => "haftanın yıldızları arasına gir", streak: (n) => `${n} ödevi arka arkaya yap`, badges: (n) => `${n} rozet kazan` };
+const REQ_TXT = { lv: (n) => `Lv${n}`, hw: (n) => `${n} ödev`, perfect: () => "💯", games: (n) => `${n} oyun`, plus: (n) => `+${n}`, star: () => "⭐ yıldız", streak: (n) => `🔥${n} seri`, badges: (n) => `${n} rozet`, fix: (n) => `🔁${n}` };
+const REQ_LONG = { lv: (n) => `${n}. seviyeye ulaş`, hw: (n) => `${n} ödev tamamla`, perfect: () => "bir ödevden 100 al", games: (n) => `${n} kelime oyunu oyna`, plus: (n) => `derste ${n} artı puan topla`, star: () => "haftanın yıldızları arasına gir", streak: (n) => `${n} ödevi arka arkaya yap`, badges: (n) => `${n} rozet kazan`, fix: (n) => `tekrar kutusunda ${n} soru düzelt` };
 export const reqShort = (r) => Object.entries(r || {}).map(([k, v]) => REQ_TXT[k](v)).join(" ");
 export const reqLong = (r) => Object.entries(r || {}).map(([k, v]) => REQ_LONG[k](v)).join(" ve ");
 export const isUnlocked = (r, st) => Object.entries(r || {}).every(([k, v]) => (st[k] || 0) >= v);

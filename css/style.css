@@ -554,3 +554,11 @@ body.print-only #printArea { display: block; padding: 16px; background: #fff; mi
 .type-in { font-size: 1.25rem !important; text-align: center; padding: 14px !important; border-width: 2px !important; }
 .type-in.right { border-color: var(--green) !important; background: var(--green-soft); }
 .type-in.wrong { border-color: var(--red) !important; background: var(--red-soft); }
+
+.av.fr-hearts::before, .av.fr-hearts::after { content: "💖"; position: absolute; font-size: calc(var(--s) * .28); animation: twinkle 1.6s ease-in-out infinite; }
+.av.fr-hearts::before { top: calc(var(--s) * -.08); left: calc(var(--s) * -.12); }
+.av.fr-hearts::after { bottom: calc(var(--s) * .05); right: calc(var(--s) * -.16); animation-delay: .8s; }
+.av.fr-ice::before { content: ""; position: absolute; inset: calc(var(--s) * -.12); border-radius: 50%; border: calc(var(--s) * .06) solid #9be7ff; box-shadow: 0 0 calc(var(--s) * .14) #9be7ff, inset 0 0 calc(var(--s) * .08) #e6faff; }
+.av.fr-neon::before { content: ""; position: absolute; inset: calc(var(--s) * -.12); border-radius: 50%; border: calc(var(--s) * .05) solid #ff2bd6; animation: neon 1.4s ease-in-out infinite alternate; }
+@keyframes neon { from { box-shadow: 0 0 calc(var(--s) * .08) #ff2bd6; border-color: #ff2bd6; } to { box-shadow: 0 0 calc(var(--s) * .2) #2bf0ff; border-color: #2bf0ff; } }
+.av.fr-crown::after { content: "👑"; position: absolute; top: calc(var(--s) * -.34); left: 50%; transform: translateX(-50%) rotate(-8deg); font-size: calc(var(--s) * .34); filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); }

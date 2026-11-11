@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=20";
-import { SITE } from "./config.js?v=20";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=20";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=20";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=20";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=20";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=20";
-import { SEED_WORDSETS } from "./seed.js?v=20";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=20";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=21";
+import { SITE } from "./config.js?v=21";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=21";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=21";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=21";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=21";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=21";
+import { SEED_WORDSETS } from "./seed.js?v=21";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=21";
 
 const app = $("#app");
 let settings, grade, view = "home";
