@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=19";
-import { SITE } from "./config.js?v=19";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=19";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=19";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=19";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=19";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=19";
-import { SEED_WORDSETS } from "./seed.js?v=19";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=19";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=20";
+import { SITE } from "./config.js?v=20";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=20";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=20";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=20";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=20";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=20";
+import { SEED_WORDSETS } from "./seed.js?v=20";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=20";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -296,14 +296,21 @@ function editor(a) {
 }
 
 // ---------------------------------------------------------------- Sonuçlar
+function boxCell(st) {
+  const fixed = new Set(practices.find((p) => p.uid === st.uid)?.fixed || []);
+  let left = 0;
+  assignments.forEach((a) => { const x = subOf(a.id, st.uid); if (!x?.correct) return; a.items.forEach((it, i) => { const c = x.correct[i]; if (it.type !== "write" && c != null && c < 1 && !fixed.has(`${a.id}:${i}`)) left++; }); });
+  if (!left && !fixed.size) return `<span class="muted">–</span>`;
+  return `${left ? `<b style="color:#d64545">${left}</b>` : `<span title="Kutu boş">✅</span>`}${fixed.size ? `<br><span class="small muted">✓${fixed.size}</span>` : ""}`;
+}
 function vRes(m) {
   const as = assignments.filter((a) => a.published).slice().reverse();
   const studs = visStudents();
   m.innerHTML = `<div class="row between"><h2>Sonuçlar</h2><div class="row">${secSelect()}<button class="btn ghost sm" id="csv">⬇ Excel (CSV)</button></div></div>
     <p class="small muted">Hücreye tıklayarak öğrencinin cevaplarını görebilir, yazma sorularını puanlayabilirsiniz. ✍️ = puanlanmayı bekleyen yazma.</p>
-    ${!as.length || !studs.length ? `<div class="card empty"><p>Gösterilecek sonuç yok.</p></div>` : `<div class="tbl-wrap"><table class="tbl"><tr><th>Şube</th><th>No</th><th>Ad Soyad</th>${as.map((a) => `<th class="c" title="${esc(a.title)}">${a.week ? a.week + ". hf" : ""}<br><span class="small">${esc(a.title.slice(0, 18))}</span></th>`).join("")}<th class="c">Ort.</th></tr>
-    ${studs.map((s) => { const ps = []; return `<tr><td>${s.section}</td><td>${s.no}</td><td>${esc(s.name)}</td>${as.map((a) => { if (!forSec(a, s.section)) return `<td class="c muted">·</td>`; const x = subOf(a.id, s.uid); if (!x) return `<td class="c"><span class="muted">–</span></td>`; ps.push(best(x)); return `<td class="c"><span class="cell-score score ${pctClass(best(x))}" data-sub="${a.id}|${s.uid}">${best(x)}${x.writeTotal && !x.writingGraded ? " ✍️" : ""}</span></td>`; }).join("")}<td class="c"><b>${avg(ps) ?? "–"}</b></td></tr>`; }).join("")}
-    <tr><td colspan="3"><b>Ortalama</b></td>${as.map((a) => { const v = avg(studs.map((s) => subOf(a.id, s.uid)).filter(Boolean).map(best)); return `<td class="c"><b>${v ?? "–"}</b></td>`; }).join("")}<td></td></tr></table></div>`}`;
+    ${!as.length || !studs.length ? `<div class="card empty"><p>Gösterilecek sonuç yok.</p></div>` : `<div class="tbl-wrap"><table class="tbl"><tr><th>Şube</th><th>No</th><th>Ad Soyad</th>${as.map((a) => `<th class="c" title="${esc(a.title)}">${a.week ? a.week + ". hf" : ""}<br><span class="small">${esc(a.title.slice(0, 18))}</span></th>`).join("")}<th class="c" title="Tekrar kutusunda kalan yanlış soru · düzelttiği soru">🔁 Kutu</th><th class="c">Ort.</th></tr>
+    ${studs.map((s) => { const ps = []; return `<tr><td>${s.section}</td><td>${s.no}</td><td>${esc(s.name)}</td>${as.map((a) => { if (!forSec(a, s.section)) return `<td class="c muted">·</td>`; const x = subOf(a.id, s.uid); if (!x) return `<td class="c"><span class="muted">–</span></td>`; ps.push(best(x)); return `<td class="c"><span class="cell-score score ${pctClass(best(x))}" data-sub="${a.id}|${s.uid}">${best(x)}${x.writeTotal && !x.writingGraded ? " ✍️" : ""}</span></td>`; }).join("")}<td class="c">${boxCell(s)}</td><td class="c"><b>${avg(ps) ?? "–"}</b></td></tr>`; }).join("")}
+    <tr><td colspan="3"><b>Ortalama</b></td>${as.map((a) => { const v = avg(studs.map((s) => subOf(a.id, s.uid)).filter(Boolean).map(best)); return `<td class="c"><b>${v ?? "–"}</b></td>`; }).join("")}<td></td><td></td></tr></table></div>`}`;
   bindSec(() => vRes(m));
   $$("[data-sub]").forEach((c) => c.onclick = () => { const [aid, uid] = c.dataset.sub.split("|"); subModal(aid, uid); });
   $("#csv").onclick = () => {

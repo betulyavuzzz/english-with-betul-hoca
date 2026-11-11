@@ -1,5 +1,5 @@
 // Oyunlaştırma: avatar, XP, seviye, rozetler
-import { esc } from "./ui.js?v=19";
+import { esc } from "./ui.js?v=20";
 
 export const AV_BASES = ["🦊", "🐼", "🐯", "🦁", "🐸", "🐨", "🐰", "🐻", "🐵", "🦄", "🐧", "🐙", "🐶", "🐱", "🐲", "🦉", "🐬", "🦖", "🤖", "👽"];
 export const AV_BGS = [
@@ -90,10 +90,12 @@ export function avatarHtml(av, size = 64, level = null) {
 }
 
 // XP: her ödev 10 XP + başarı (en fazla 20) · sınıf puanı ±5 XP · haftalık yıldız 3 XP
+export const BOX_XP = 2;
 export function computeXP({ subs = [], points = [], feedback = [], practice = null }) {
   let xp = 0;
   xp += Math.min(practice?.xpGames || 0, 60) * 2; // kelime oyunları: sadece başarılı oyunlar, oyun başına 2 XP (en fazla 120)
   subs.forEach((s) => { xp += 10 + Math.round((s.best ?? s.percent ?? 0) / 5); });
+  xp += (practice?.fixed?.length || 0) * BOX_XP; // tekrar kutusu: düzeltilen her soru bir kez
   points.forEach((p) => { xp += (p.delta || 0) * 5; });
   feedback.forEach((f) => { xp += (f.stars || 0) * 3; });
   xp = Math.max(0, xp);
@@ -117,6 +119,7 @@ export function weeklyXP({ subs = [], points = [], practice = null }, from = wee
   const t = from.getTime(); let xp = 0;
   subs.forEach((s) => { if ((s.submittedAt || 0) >= t) xp += 10 + Math.round((s.best ?? s.percent ?? 0) / 5); });
   points.forEach((p) => { if ((p.at || 0) >= t) xp += (p.delta || 0) * 5; });
+  Object.entries(practice?.fixedLog || {}).forEach(([k, n]) => { if (new Date(k + "T12:00:00").getTime() >= t) xp += n * BOX_XP; });
   Object.entries(practice?.xpLog || {}).forEach(([k, n]) => { if (new Date(k + "T12:00:00").getTime() >= t) xp += Math.min(n, GAME_DAILY_XP_LIMIT) * 2; });
   return Math.max(0, xp);
 }

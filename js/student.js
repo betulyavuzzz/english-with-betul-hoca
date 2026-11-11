@@ -1,10 +1,10 @@
-import { api, isDemo, friendlyError } from "./api.js?v=19";
-import { SITE } from "./config.js?v=19";
-import { SKILLS } from "./defaults.js?v=19";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=19";
-import { play, computeResult, itemSummary, answerText, correctText, scoreItem } from "./player.js?v=19";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml } from "./game.js?v=19";
-import { wordsHome } from "./words.js?v=19";
+import { api, isDemo, friendlyError } from "./api.js?v=20";
+import { SITE } from "./config.js?v=20";
+import { SKILLS } from "./defaults.js?v=20";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=20";
+import { play, computeResult, itemSummary, answerText, correctText, scoreItem } from "./player.js?v=20";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP } from "./game.js?v=20";
+import { wordsHome } from "./words.js?v=20";
 
 const app = $("#app");
 let settings = null;
@@ -439,7 +439,7 @@ function boxCard() {
   if (!n && !f) return "";
   if (!n) return `<div class="remind" style="margin-top:10px">🔁 <div><b>Tekrar kutun boş!</b> Ödevlerdeki tüm yanlışlarını düzelttin (${f} soru). Harikasın! 🎉</div></div>`;
   return `<div class="card box-card" style="margin-top:12px;border:3px solid var(--gold,#c9a227)"><div class="row between" style="gap:12px;flex-wrap:wrap">
-    <div><h3 style="margin:0">🔁 Tekrar kutusu</h3><p class="small muted" style="margin:4px 0 0">Ödevlerde yanlış yaptığın <b>${n}</b> soru seni bekliyor. Doğru yaptığın soru kutudan çıkar!${f ? ` · Şimdiye kadar ${f} soruyu düzelttin 💪` : ""}</p></div>
+    <div><h3 style="margin:0">🔁 Tekrar kutusu</h3><p class="small muted" style="margin:4px 0 0">Ödevlerde yanlış yaptığın <b>${n}</b> soru seni bekliyor. Doğru yaptığın her soru kutudan çıkar ve <b>+${BOX_XP} XP</b> kazandırır!${f ? ` · Şimdiye kadar ${f} soruyu düzelttin 💪` : ""}</p></div>
     <button class="btn gold" data-box>Başla (${Math.min(n, BOX_SIZE)} soru) →</button></div></div>`;
 }
 function startBox() {
@@ -452,12 +452,16 @@ function startBox() {
     onFinish: async (answers) => {
       const ok = pool.filter((x, i) => scoreItem(x.it, answers[i]) === 1).map((x) => x.key);
       const p = practice || { uid: me.uid, grade: me.grade, section: me.section, games: 0, log: {}, best: {} };
-      p.fixed = [...new Set([...(p.fixed || []), ...ok])]; p.updatedAt = Date.now(); practice = p;
-      try { await api.savePractice(p); } catch (e) { toast("Kaydedilemedi: " + friendlyError(e), "bad"); }
+      const before = (p.fixed || []).length;
+      p.fixed = [...new Set([...(p.fixed || []), ...ok])];
+      const gained = p.fixed.length - before, k = dayKey();
+      if (gained) p.fixedLog = { ...(p.fixedLog || {}), [k]: ((p.fixedLog || {})[k] || 0) + gained };
+      p.updatedAt = Date.now(); practice = p;
+      try { await api.savePractice(p); await refreshStars(); } catch (e) { toast("Kaydedilemedi: " + friendlyError(e), "bad"); }
       const left = boxItems().length;
       if (ok.length) confetti();
       app.innerHTML = `<div class="card result"><div class="big">${left ? "🔁" : "🏆"}</div>
-        <h2>${ok.length}/${pool.length} soruyu düzelttin!</h2>
+        <h2>${ok.length}/${pool.length} soruyu düzelttin!</h2>${gained ? `<div class="levelup" style="margin:8px auto">+${gained * BOX_XP} XP kazandın! ⭐</div>` : ""}
         <p class="muted">${left ? `Kutunda <b>${left}</b> soru kaldı. Yanlış yaptıkların kutuda kalır, tekrar dene!` : "Tekrar kutun bomboş! Tüm yanlışlarını düzelttin. 🎉"}</p>
         <div class="row" style="justify-content:center;margin-top:18px">${left ? `<button class="btn gold" id="again">🔁 Devam et</button>` : ""}<button class="btn ghost" id="hm">🏠 Ana sayfa</button></div></div>`;
       $("#hm").onclick = showHome; if (left) $("#again").onclick = startBox;
