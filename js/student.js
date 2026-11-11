@@ -1,10 +1,10 @@
-import { api, isDemo, friendlyError } from "./api.js?v=17";
-import { SITE } from "./config.js?v=17";
-import { SKILLS } from "./defaults.js?v=17";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=17";
-import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=17";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml } from "./game.js?v=17";
-import { wordsHome } from "./words.js?v=17";
+import { api, isDemo, friendlyError } from "./api.js?v=18";
+import { SITE } from "./config.js?v=18";
+import { SKILLS } from "./defaults.js?v=18";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=18";
+import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=18";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml } from "./game.js?v=18";
+import { wordsHome } from "./words.js?v=18";
 
 const app = $("#app");
 let settings = null;
@@ -106,8 +106,10 @@ async function refreshStars() {
   try {
     const e = weeklyEntry(me, profile?.avatar, { subs: Object.values(subs), points, practice });
     if (e.xp > 0) await api.saveWeekly(e);
-    const list = (await api.listWeekly(me.grade, me.section, weekKey())).filter((x) => x.xp > 0).sort((a, b) => b.xp - a.xp).slice(0, 3);
-    stars = { label: weekLabel(), list };
+    const all = (await api.listWeekly(me.grade, me.section, weekKey())).filter((x) => x.xp > 0).sort((a, b) => b.xp - a.xp);
+    const myXp = e.xp, above = all.filter((x) => x.xp > myXp && x.uid !== me.uid);
+    const next = above.length ? Math.min(...above.map((x) => x.xp)) : null;
+    stars = { label: weekLabel(), list: all.slice(0, 3), myXp, rank: myXp > 0 ? above.length + 1 : null, gap: next != null ? next - myXp + 1 : null };
   } catch (err) { console.warn("Haftanın yıldızları alınamadı", err); stars = null; }
 }
 function rememberMe() {
@@ -286,11 +288,19 @@ function dueChip(a) {
   if (d <= 3) return `<span class="due warm">⏳ ${d} gün kaldı</span>`;
   return `<span class="due">📅 ${d} gün kaldı · ${fmtDate(a.dueDate)}</span>`;
 }
+function rankLine() {
+  if (!stars) return "";
+  const r = stars.rank;
+  const msg = !r ? `Bu hafta henüz XP kazanmadın. Bir ödev yap, sıralamaya gir! 🚀`
+    : r === 1 ? `Bu hafta sınıfında <b>1. sıradasın</b>! 🏆 Yerini koru!`
+    : `Bu hafta sınıfında <b>${r}. sıradasın</b>. ${stars.gap} XP daha kazanırsan bir üst sıraya çıkarsın! 💪`;
+  return `<div class="remind" style="margin-top:10px">📈 <div>${msg}${r ? ` <span class="small muted">(Bu haftaki XP'n: ${stars.myXp})</span>` : ""}</div></div>`;
+}
 function starsCard() {
-  if (!stars?.list?.length) return "";
+  if (!stars?.list?.length) return rankLine();
   return `<div class="stars-card"><div class="sc-head"><b>🌟 Haftanın Yıldızları · ${me.grade}-${me.section}</b><small>${esc(stars.label || "")}</small></div>
     ${podiumHtml(stars.list, me.uid, true)}
-    ${stars.list.slice(0, 3).some((x) => x.uid === me.uid) ? `<p class="center" style="margin:8px 0 0;font-weight:800">Bu hafta sen de yıldızlar arasındasın! 🎉</p>` : `<p class="center small" style="margin:8px 0 0;opacity:.85">Ödev yap, kelime oyunu oyna, derste katıl; gelecek hafta sen de burada ol!</p>`}</div>`;
+    ${stars.list.slice(0, 3).some((x) => x.uid === me.uid) ? `<p class="center" style="margin:8px 0 0;font-weight:800">Bu hafta sen de yıldızlar arasındasın! 🎉</p>` : `<p class="center small" style="margin:8px 0 0;opacity:.85">Ödev yap, kelime oyunu oyna, derste katıl; gelecek hafta sen de burada ol!</p>`}</div>` + (stars.rank && stars.rank <= 3 ? "" : rankLine());
 }
 function hwList() {
   const urgent = assignments.filter((a) => status(a).open && daysLeft(a.dueDate) != null && daysLeft(a.dueDate) <= 2);
