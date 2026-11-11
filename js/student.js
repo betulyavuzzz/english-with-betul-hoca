@@ -1,10 +1,10 @@
-import { api, isDemo, friendlyError } from "./api.js?v=21";
-import { SITE } from "./config.js?v=21";
-import { SKILLS } from "./defaults.js?v=21";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=21";
-import { play, computeResult, itemSummary, answerText, correctText, scoreItem } from "./player.js?v=21";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP } from "./game.js?v=21";
-import { wordsHome } from "./words.js?v=21";
+import { api, isDemo, friendlyError } from "./api.js?v=22";
+import { SITE } from "./config.js?v=22";
+import { SKILLS } from "./defaults.js?v=22";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=22";
+import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=22";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP } from "./game.js?v=22";
+import { wordsHome } from "./words.js?v=22";
 
 const app = $("#app");
 let settings = null;
@@ -491,11 +491,12 @@ function start(id) {
   const finish = async (answers) => {
     const ans = Object.fromEntries(answers.map((v, i) => [i, Array.isArray(v) ? [...v] : v]));
     const prev = subs[id];
-    const r = computeResult(a, ans, null);
+    const awp = a.items.some((it) => it.type === "write") ? autoWritePoints(a, ans) : null;
+    const r = computeResult(a, ans, awp);
     const sub = {
       assignmentId: id, uid: me.uid, grade: me.grade, section: me.section, no: me.no, name: me.name,
       week: a.week || 0, unit: a.unit, answers: ans, correct: r.correct, auto: r.auto, autoTotal: r.autoTotal,
-      writeTotal: r.writeTotal, percent: r.percent, writingGraded: r.writeTotal === 0, writingPoints: null,
+      writeTotal: r.writeTotal, percent: r.percent, writingGraded: true, writingPoints: null, autoWP: awp,
       best: Math.max(r.percent, prev?.best ?? 0), attempts: (prev?.attempts || 0) + 1, submittedAt: Date.now()
     };
     app.innerHTML = `<div class="card result"><div class="big spin">⭐</div><p>Kaydediliyor…</p></div>`;
@@ -523,7 +524,7 @@ function resultScreen(a, r, lvBefore) {
     <div class="pct ${pctClass(p)}">${p}<small>/100</small></div>
     <p class="muted">${msg[2]}</p>
     <div class="xp" style="max-width:320px;margin:10px auto"><div class="xp-top"><b>Lv ${X.level}</b><span>${X.into}/${X.need} XP</span></div><div class="xp-bar"><span style="width:${(X.into / X.need) * 100}%"></span></div></div>
-    ${r.writeTotal ? `<p class="small"><span class="badge ok">Yazma bölümünü öğretmenin puanlayacak; puanın değişebilir.</span></p>` : ""}
+    ${r.writeTotal ? `<p class="small"><span class="badge ok">Yazma bölümü otomatik puanlandı; öğretmenin puanı değiştirebilir.</span></p>` : ""}
     <div class="row" style="justify-content:center;margin-top:18px">
       <button class="btn ghost" id="rv">👀 Cevaplarımı gör</button>
       <button class="btn gold" id="hm">🏠 Ana sayfa</button>
@@ -539,7 +540,7 @@ function review(id) {
   const rows = a.items.map((it, i) => {
     const c = s.correct?.[i];
     const icon = it.type === "write" ? "✍️" : c === 1 ? "✅" : c > 0 ? "🟡" : "❌";
-    const wp = s.writingPoints?.[i];
+    const wp = s.writingPoints?.[i] ?? s.autoWP?.[i];
     return `<div class="item-ed rv ${it.type === "write" ? "" : c === 1 ? "ok" : "no"}"><div class="row between"><b>${i + 1}. ${esc(itemSummary(it))}</b><span>${icon}</span></div>
       <p class="small" style="margin:6px 0 0">Senin cevabın: <b>${esc(answerText(it, s.answers?.[i]))}</b></p>
       ${it.type === "write" ? `<p class="small" style="margin:2px 0 0">Öğretmen puanı: <b>${wp != null ? `${wp}/${it.points || 3}` : "bekleniyor"}</b></p>` : c !== 1 ? `<p class="small" style="margin:2px 0 0;color:var(--green)">Doğrusu: <b>${esc(correctText(it))}</b></p>` : ""}</div>`;

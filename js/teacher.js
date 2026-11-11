@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=21";
-import { SITE } from "./config.js?v=21";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=21";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=21";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=21";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints } from "./player.js?v=21";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=21";
-import { SEED_WORDSETS } from "./seed.js?v=21";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=21";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=22";
+import { SITE } from "./config.js?v=22";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=22";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=22";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=22";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=22";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=22";
+import { SEED_WORDSETS } from "./seed.js?v=22";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=22";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -138,11 +138,24 @@ function vHome(m) {
       <div class="kpi"><b>${studs.length}</b><span>öğrenci</span></div>
       <div class="kpi"><b>${pub.length}</b><span>yayındaki ödev</span></div>
       <div class="kpi"><b>${avg(allP) ?? "–"}</b><span>genel ortalama</span></div>
-      <div class="kpi"><b>${writePending}</b><span>puanlanacak yazma</span></div>
+      <div class="kpi"><b>${writePending}</b><span>puanlanacak yazma</span>${writePending ? `<button class="btn gold sm" id="autoW" style="margin-top:6px">🤖 Otomatik puanla</button>` : ""}</div>
     </div>
     ${!students.length ? `<div class="card empty"><div class="big">👥</div><p>Önce öğrencileri ekleyin.</p><button class="btn gold" onclick="document.querySelector('[data-v=st]').click()">Öğrenci ekle</button></div>` : ""}
     ${!assignments.length ? `<div class="card empty"><div class="big">📝</div><p>Henüz ödev yok.</p><button class="btn gold" onclick="document.querySelector('[data-v=hw]').click()">Ödev ekle</button></div>` : ""}
     <div class="grid">${starsPreview()}${lastRow}${skillCard(studs)}</div>`;
+  const aw = $("#autoW");
+  if (aw) aw.onclick = async () => {
+    if (!confirm(`${writePending} yazma cevabı otomatik puanlansın mı? (Yeterli uzunlukta İngilizce yazana tam puan; kısa, Türkçe ya da tekrar eden cevaba düşük puan. Sonra Sonuçlar'dan değiştirebilirsiniz.)`)) return;
+    aw.disabled = true; let n = 0;
+    for (const sub of submissions.filter((s) => s.writeTotal && !s.writingGraded)) {
+      const a = assignments.find((x) => x.id === sub.assignmentId); if (!a) continue;
+      const wp = autoWritePoints(a, sub.answers || {}, sub.writingPoints);
+      const r = computeResult(a, sub.answers || {}, wp);
+      const patch = { writingPoints: wp, writingGraded: r.writingGraded, percent: r.percent, best: r.percent };
+      try { await api.saveSubmission({ ...sub, ...patch }); Object.assign(sub, patch); n++; aw.textContent = `⏳ ${n}`; } catch (e) { toast(friendlyError(e), "bad"); break; }
+    }
+    toast(`${n} yazma cevabı puanlandı`, "ok"); vHome(m);
+  };
   bindSec(() => vHome(m));
 }
 function skillCard(studs) {
@@ -322,7 +335,7 @@ function vRes(m) {
 
 function subModal(aid, uid) {
   const a = assignments.find((x) => x.id === aid), s = students.find((x) => x.uid === uid), sub = subOf(aid, uid);
-  const wp = { ...(sub.writingPoints || {}) };
+  const wp = { ...(sub.autoWP || {}), ...(sub.writingPoints || {}) };
   const { el, close } = modal(`<h3>${esc(s.name)} · ${esc(a.title)}</h3>
     <p class="small muted">${sub.attempts} deneme · en iyi ${best(sub)} · son ${sub.percent} · ${new Date(sub.submittedAt).toLocaleString("tr-TR")}</p>
     ${a.items.map((it, i) => { const c = sub.correct?.[i]; return `<div class="item-ed"><div class="row between"><b class="small">${i + 1}. ${esc(itemSummary(it))}</b><span>${it.type === "write" ? "✍️" : c === 1 ? "✅" : c > 0 ? "🟡" : "❌"}</span></div>

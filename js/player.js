@@ -1,5 +1,5 @@
 // Etkinlik oynatıcı ve puanlama
-import { esc, shuffle, speak } from "./ui.js?v=21";
+import { esc, shuffle, speak } from "./ui.js?v=22";
 
 export const itemPoints = (it) => (it.type === "write" ? Number(it.points || 3) : Number(it.points || 1));
 
@@ -19,6 +19,25 @@ export function scoreItem(it, ans) {
 const norm = (s) => s.toLowerCase().replace(/\s+/g, " ").trim();
 // Yazarak cevap: büyük/küçük harf, noktalama ve fazla boşluk önemsiz
 const normT = (s) => String(s ?? "").toLocaleLowerCase("en").replace(/[’`]/g, "'").replace(/[.,!?;:"]/g, " ").replace(/\s+/g, " ").trim();
+
+// Yazma sorusu otomatik puanı: kelime sayısı, İngilizce olması, tekrar etmemesi
+export function autoWriteScore(it, text) {
+  const max = itemPoints(it), t = String(text || "");
+  const words = t.match(/[A-Za-z']+/g) || [], wc = words.length, min = it.minWords || 5;
+  const uniq = new Set(words.map((w) => w.toLowerCase())).size;
+  const tr = (t.match(/[ğüşıöçĞÜŞİÖÇ]/g) || []).length;
+  let sc = wc >= min ? max : wc >= Math.ceil(min / 2) ? Math.max(1, max - 1) : wc >= 2 ? 1 : 0;
+  if (wc && uniq < wc * 0.4) sc = Math.min(sc, 1);
+  const EN = /^(i|my|me|you|your|he|she|it|we|they|the|a|an|is|am|are|was|have|has|do|does|don't|like|likes|love|to|in|on|at|and|because|there|this|is|of|with|can|must|mustn't|be|play|go|name|hello|hi|school|teacher|lesson|favourite|favorite|class|friend)$/;
+  const enN = words.filter((w) => EN.test(w.toLowerCase())).length;
+  if (tr > 3 || (tr > 0 && enN < 2) || (wc >= 3 && enN === 0)) sc = Math.min(sc, 1);
+  return sc;
+}
+export function autoWritePoints(a, answers, keep = {}) {
+  const wp = { ...(keep || {}) };
+  a.items.forEach((it, i) => { if (it.type === "write" && wp[i] == null) wp[i] = autoWriteScore(it, answers?.[i]); });
+  return wp;
+}
 
 export function computeResult(a, answers, writingPoints = null) {
   let auto = 0, autoTotal = 0, writeTotal = 0;
@@ -99,7 +118,7 @@ export function play(root, a, { onFinish, onExit, practice = false }) {
       root.querySelector(".qcard").classList.add("locked");
       const fb = root.querySelector(".fb");
       if (it.type === "write") {
-        fb.innerHTML = `<span class="fb-ok">✍️ Cevabın kaydedildi. Öğretmenin puanlayacak.</span>`;
+        fb.innerHTML = `<span class="fb-ok">✍️ Cevabın kaydedildi ve puanlandı. Öğretmenin puanı değiştirebilir.</span>`;
       } else {
         const s = scoreItem(it, answers[idx]);
         if (s === 1) fb.innerHTML = `<span class="fb-ok">${pick(["Great job!", "Excellent!", "Well done!", "Super!", "Perfect!"])} 🎉</span>`;
