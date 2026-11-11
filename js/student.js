@@ -1,10 +1,10 @@
-import { api, isDemo, friendlyError } from "./api.js?v=18";
-import { SITE } from "./config.js?v=18";
-import { SKILLS } from "./defaults.js?v=18";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=18";
-import { play, computeResult, itemSummary, answerText, correctText } from "./player.js?v=18";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml } from "./game.js?v=18";
-import { wordsHome } from "./words.js?v=18";
+import { api, isDemo, friendlyError } from "./api.js?v=19";
+import { SITE } from "./config.js?v=19";
+import { SKILLS } from "./defaults.js?v=19";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=19";
+import { play, computeResult, itemSummary, answerText, correctText, scoreItem } from "./player.js?v=19";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml } from "./game.js?v=19";
+import { wordsHome } from "./words.js?v=19";
 
 const app = $("#app");
 let settings = null;
@@ -272,6 +272,7 @@ function drawTab() {
   body.innerHTML = ({ hw: hwList, pr: progressView, fb: fbView, bd: badgesView })[tab]();
   $$("[data-start]").forEach((b) => b.onclick = () => start(b.dataset.start));
   $$("[data-review]").forEach((b) => b.onclick = () => review(b.dataset.review));
+  $$("[data-box]").forEach((b) => b.onclick = startBox);
 }
 
 const HW_COLORS = ["#ff6a88", "#4cc9f0", "#43aa8b", "#f6a04d", "#9d4edd", "#e63946", "#2b9348", "#7f7fd5"];
@@ -305,7 +306,7 @@ function starsCard() {
 function hwList() {
   const urgent = assignments.filter((a) => status(a).open && daysLeft(a.dueDate) != null && daysLeft(a.dueDate) <= 2);
   const top = starsCard() + (urgent.length ? `<div class="remind">⏰ <div><b>Unutma!</b> ${urgent.map((a) => `"${esc(a.title)}" ${daysLeft(a.dueDate) === 0 ? "bugün" : daysLeft(a.dueDate) === 1 ? "yarın" : "2 gün sonra"}`).join(", ")} bitiyor.</div></div>` : "");
-  return top + hwListInner();
+  return top + boxCard() + hwListInner();
 }
 function hwListInner() {
   if (!assignments.length) return `<div class="card empty"><div class="big">📭</div><p>Henüz ödev yok. Öğretmenin ödev verince burada göreceksin.</p></div>`;
@@ -417,6 +418,51 @@ function badgesView() {
   const bs = badgesFor(); const n = bs.filter((b) => b.on).length;
   return `<p class="muted"><b>${n}/${bs.length}</b> rozet kazandın${n === bs.length ? " — hepsini topladın! 🏆" : ". Hepsini toplayabilir misin?"}</p>
     <div class="badges">${bs.map((b) => `<div class="bdg ${b.on ? "" : "off"}" style="--bc:${b.c}"><div class="e">${b.on ? b.e : "🔒"}</div><b>${b.n}</b><small>${b.d}</small></div>`).join("")}</div>`;
+}
+
+// ---------------------------------------------------------------- Tekrar kutusu: ödevlerdeki yanlışlar
+const BOX_SIZE = 10;
+function boxItems() {
+  const fixed = new Set(practice?.fixed || []);
+  const out = [];
+  for (const a of assignments) {
+    const s = subs[a.id]; if (!s?.correct) continue;
+    a.items.forEach((it, i) => {
+      const c = s.correct[i];
+      if (it.type !== "write" && c != null && c < 1 && !fixed.has(`${a.id}:${i}`)) out.push({ key: `${a.id}:${i}`, it });
+    });
+  }
+  return out;
+}
+function boxCard() {
+  const n = boxItems().length, f = (practice?.fixed || []).length;
+  if (!n && !f) return "";
+  if (!n) return `<div class="remind" style="margin-top:10px">🔁 <div><b>Tekrar kutun boş!</b> Ödevlerdeki tüm yanlışlarını düzelttin (${f} soru). Harikasın! 🎉</div></div>`;
+  return `<div class="card box-card" style="margin-top:12px;border:3px solid var(--gold,#c9a227)"><div class="row between" style="gap:12px;flex-wrap:wrap">
+    <div><h3 style="margin:0">🔁 Tekrar kutusu</h3><p class="small muted" style="margin:4px 0 0">Ödevlerde yanlış yaptığın <b>${n}</b> soru seni bekliyor. Doğru yaptığın soru kutudan çıkar!${f ? ` · Şimdiye kadar ${f} soruyu düzelttin 💪` : ""}</p></div>
+    <button class="btn gold" data-box>Başla (${Math.min(n, BOX_SIZE)} soru) →</button></div></div>`;
+}
+function startBox() {
+  const pool = boxItems().sort(() => Math.random() - 0.5).slice(0, BOX_SIZE);
+  if (!pool.length) return showHome();
+  app.className = "wrap"; window.scrollTo(0, 0);
+  const a = { id: "box", title: "Tekrar kutusu", items: pool.map((x) => x.it) };
+  play(app, a, {
+    practice: true, onExit: showHome,
+    onFinish: async (answers) => {
+      const ok = pool.filter((x, i) => scoreItem(x.it, answers[i]) === 1).map((x) => x.key);
+      const p = practice || { uid: me.uid, grade: me.grade, section: me.section, games: 0, log: {}, best: {} };
+      p.fixed = [...new Set([...(p.fixed || []), ...ok])]; p.updatedAt = Date.now(); practice = p;
+      try { await api.savePractice(p); } catch (e) { toast("Kaydedilemedi: " + friendlyError(e), "bad"); }
+      const left = boxItems().length;
+      if (ok.length) confetti();
+      app.innerHTML = `<div class="card result"><div class="big">${left ? "🔁" : "🏆"}</div>
+        <h2>${ok.length}/${pool.length} soruyu düzelttin!</h2>
+        <p class="muted">${left ? `Kutunda <b>${left}</b> soru kaldı. Yanlış yaptıkların kutuda kalır, tekrar dene!` : "Tekrar kutun bomboş! Tüm yanlışlarını düzelttin. 🎉"}</p>
+        <div class="row" style="justify-content:center;margin-top:18px">${left ? `<button class="btn gold" id="again">🔁 Devam et</button>` : ""}<button class="btn ghost" id="hm">🏠 Ana sayfa</button></div></div>`;
+      $("#hm").onclick = showHome; if (left) $("#again").onclick = startBox;
+    }
+  });
 }
 
 // ---------------------------------------------------------------- Ödev çözme
