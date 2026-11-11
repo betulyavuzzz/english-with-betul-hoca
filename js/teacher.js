@@ -1,12 +1,12 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=23";
-import { SITE } from "./config.js?v=23";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=23";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=23";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=23";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=23";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=23";
-import { SEED_WORDSETS } from "./seed.js?v=23";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=23";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=24";
+import { SITE } from "./config.js?v=24";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=24";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=24";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=24";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=24";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=24";
+import { SEED_WORDSETS } from "./seed.js?v=24";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=24";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -74,7 +74,7 @@ function login(notTeacher) {
 }
 
 // ---------------------------------------------------------------- İskelet
-const NAV = [["home", "🏠", "Genel bakış"], ["cls", "📱", "Sınıf modu"], ["wd", "🃏", "Kelimeler"], ["hw", "📝", "Ödevler"], ["res", "📊", "Sonuçlar"], ["fb", "💬", "Geri bildirim"], ["gb", "📒", "Not defteri"], ["kr", "📄", "Karneler"], ["st", "👥", "Öğrenciler"], ["set", "⚙️", "Ayarlar"]];
+const NAV = [["home", "🏠", "Genel bakış"], ["last", "🎯", "Son ödev"], ["cls", "📱", "Sınıf modu"], ["wd", "🃏", "Kelimeler"], ["hw", "📝", "Ödevler"], ["res", "📊", "Sonuçlar"], ["fb", "💬", "Geri bildirim"], ["gb", "📒", "Not defteri"], ["kr", "📄", "Karneler"], ["st", "👥", "Öğrenciler"], ["set", "⚙️", "Ayarlar"]];
 function shell() {
   app.innerHTML = `<div class="tlayout"><nav class="side">
       <div class="gsel"><select id="gs">${(me.admin ? [5, 6, 7, 8] : myGrades()).map((g) => `<option value="${g}" ${g === grade ? "selected" : ""}>${g}. sınıflar${settings.activeGrades.includes(g) ? "" : " (kapalı)"}</option>`).join("")}</select></div>
@@ -87,7 +87,7 @@ function shell() {
 function draw() {
   $$(".side [data-v]").forEach((b) => b.classList.toggle("on", b.dataset.v === view));
   const m = $("#main");
-  ({ home: vHome, cls: vClass, wd: vWords, kr: vReports, hw: vHw, res: vRes, fb: vFb, gb: vGb, st: vSt, set: vSet })[view](m);
+  ({ home: vHome, last: vLast, cls: vClass, wd: vWords, kr: vReports, hw: vHw, res: vRes, fb: vFb, gb: vGb, st: vSt, set: vSet })[view](m);
   window.scrollTo(0, 0);
 }
 const myKeys = () => (me.sections || []).map((k) => ({ g: Number(String(k).match(/^\d+/)?.[0]), s: String(k).replace(/^\d+-?/, "") }));
@@ -103,6 +103,64 @@ const forSec = (a, sec) => !a.sections?.length || a.sections.includes(sec);
 const unitName = (u) => (settings.units[grade] || [])[u - 1] || "";
 const avg = (a) => (a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : null);
 const visStudents = () => students.filter((s) => !secFilter || s.section === secFilter);
+
+// ---------------------------------------------------------------- Tek ödev detayı
+let lastAid = null;
+function vLast(m) {
+  const pub = assignments.filter((a) => a.published);
+  if (!pub.length) { m.innerHTML = `<h2>Son ödev</h2><div class="card empty"><p>Yayında ödev yok.</p></div>`; return; }
+  if (!secFilter) { let sv = ""; try { sv = localStorage.getItem("ewbh-last-sec") || ""; } catch {} secFilter = sections().includes(sv) ? sv : (mySecs()[0] && sections().includes(mySecs()[0]) ? mySecs()[0] : ""); }
+  const a = pub.find((x) => x.id === lastAid) || pub[0];
+  const studs = visStudents().filter((s) => forSec(a, s.section)).sort((x, y) => String(x.section).localeCompare(y.section) || Number(x.no) - Number(y.no));
+  const rows = studs.map((st) => ({ st, sub: subOf(a.id, st.uid) }));
+  const done = rows.filter((r) => r.sub), miss = rows.filter((r) => !r.sub);
+  const ps = done.map((r) => best(r.sub));
+  const full = ps.filter((p) => p >= 100).length;
+  const tries = avg(done.map((r) => r.sub.attempts || 1));
+  const late = (r) => a.dueDate && new Date(r.sub.submittedAt).toISOString().slice(0, 10) > a.dueDate;
+  const fixedOf = (uid) => new Set(practices.find((p) => p.uid === uid)?.fixed || []);
+  const bands = [["85–100", (p) => p >= 85, "#1f9d63"], ["70–84", (p) => p >= 70 && p < 85, "#4cc9f0"], ["50–69", (p) => p >= 50 && p < 70, "#f6a04d"], ["0–49", (p) => p < 50, "#d64545"]];
+  const qs = a.items.map((it, i) => {
+    const rs = done.filter((r) => r.sub.correct?.[i] != null);
+    const ok = rs.filter((r) => r.sub.correct[i] === 1).length;
+    const wrong = rs.filter((r) => r.sub.correct[i] < 1);
+    const cnt = {}; wrong.forEach((r) => { const t = answerText(it, r.sub.answers?.[i]) || "(boş)"; cnt[t] = (cnt[t] || 0) + 1; });
+    const top = Object.entries(cnt).sort((x, y) => y[1] - x[1])[0];
+    return { i, it, n: rs.length, pct: rs.length ? Math.round((ok / rs.length) * 100) : null, wrong, top };
+  });
+  const hard = qs.filter((q) => q.pct != null).sort((x, y) => x.pct - y.pct);
+  const msg = `📝 "${a.title}" ödevini henüz yapmayanlar:\n` + miss.map((r) => `• ${grade}-${r.st.section} ${r.st.no} ${r.st.name}`).join("\n") + (a.dueDate ? `\n\n⏰ Son gün: ${fmtDate(a.dueDate)}` : "") + `\n🔗 ${siteUrl()}`;
+  m.innerHTML = `<div class="row between"><h2>🎯 Ödev detayı</h2><div class="row">${secSelect()}<select id="aSel" style="width:auto;max-width:320px">${pub.map((x, k) => `<option value="${x.id}" ${x.id === a.id ? "selected" : ""}>${k === 0 ? "🆕 " : ""}${esc(x.title)}</option>`).join("")}</select></div></div>
+    <div class="card" style="margin-top:6px"><h3 style="margin:0">${esc(a.title)}</h3><p class="small muted" style="margin:4px 0 0">${a.items.length} soru${a.week ? ` · ${a.week}. hafta` : ""}${a.dueDate ? ` · Son gün ${fmtDate(a.dueDate)}` : ""}</p></div>
+    <div class="kpis">
+      <div class="kpi"><b>${done.length}/${rows.length}</b><span>yapan (%${rows.length ? Math.round(done.length / rows.length * 100) : 0})</span></div>
+      <div class="kpi"><b>${avg(ps) ?? "–"}</b><span>ortalama</span></div>
+      <div class="kpi"><b>${ps.length ? Math.max(...ps) : "–"} / ${ps.length ? Math.min(...ps) : "–"}</b><span>en yüksek / en düşük</span></div>
+      <div class="kpi"><b>${full}</b><span>100 alan</span></div>
+      <div class="kpi"><b>${tries ?? "–"}</b><span>ort. deneme</span></div>
+    </div>
+    <div class="grid">
+      <div class="card"><h3>📊 Puan dağılımı</h3>${bands.map(([t, f, c]) => { const n = ps.filter(f).length; return `<div class="row" style="gap:10px;margin:6px 0"><span style="width:62px" class="small"><b>${t}</b></span><div class="meter" style="flex:1"><span style="width:${ps.length ? n / ps.length * 100 : 0}%;background:${c}"></span></div><b style="width:28px;text-align:right">${n}</b></div>`; }).join("")}</div>
+      <div class="card"><div class="row between"><h3 style="margin:0">⏳ Yapmayanlar (${miss.length})</h3>${miss.length ? `<span class="row"><button class="btn ghost sm" id="cp">📋 Kopyala</button><button class="btn ghost sm" id="wa">📲 WhatsApp</button></span>` : ""}</div>
+        <div style="margin-top:10px">${miss.length ? miss.map((r) => `<span class="badge" style="margin:3px">${r.st.section}·${r.st.no} ${esc(r.st.name)}</span>`).join("") : "Herkes yaptı 🎉"}</div></div>
+    </div>
+    <div class="card"><h3>🧩 Soru analizi <span class="small muted">(en zor sorudan başlayarak)</span></h3>
+      ${hard.length ? `<div class="tbl-wrap"><table class="tbl"><tr><th>#</th><th>Soru</th><th style="width:22%">Doğru oranı</th><th>En sık yanlış cevap</th><th>Yanlış yapanlar</th></tr>
+      ${hard.map((q) => `<tr ${q.pct < 50 ? 'style="background:#fff1f1"' : ""}><td><b>${q.i + 1}</b></td><td class="small">${esc(itemSummary(q.it)).slice(0, 90)}${q.pct < 50 ? `<br><span class="badge late">Derste tekrar et</span>` : ""}</td>
+        <td><div class="row" style="gap:6px"><div class="meter" style="flex:1"><span style="width:${q.pct}%;background:${q.pct >= 80 ? "#1f9d63" : q.pct >= 50 ? "#f6a04d" : "#d64545"}"></span></div><b>%${q.pct}</b></div></td>
+        <td class="small">${q.top ? `“${esc(q.top[0]).slice(0, 50)}” <span class="muted">×${q.top[1]}</span>` : "–"}</td>
+        <td class="small">${q.wrong.length ? q.wrong.map((r) => esc(r.st.name.split(" ")[0])).join(", ") : "–"}</td></tr>`).join("")}</table></div>` : `<p class="muted">Henüz yapan yok.</p>`}</div>
+    <div class="card"><h3>👥 Öğrenciler <span class="small muted">(puana tıklayınca cevapları açılır)</span></h3><div class="tbl-wrap"><table class="tbl"><tr><th>Şube</th><th>No</th><th>Ad Soyad</th><th class="c">Puan</th><th class="c">Son deneme</th><th class="c">Deneme</th><th class="c">✅ / ❌</th><th class="c">🔁 Kutuda</th><th>Teslim</th></tr>
+      ${rows.sort((x, y) => (best(y.sub) ?? -1) - (best(x.sub) ?? -1)).map((r) => { const x = r.sub; if (!x) return `<tr style="opacity:.55"><td>${r.st.section}</td><td>${r.st.no}</td><td>${esc(r.st.name)}</td><td class="c" colspan="6"><span class="badge late">Yapmadı</span></td></tr>`;
+        const c = (x.correct || []).filter((v) => v != null); const ok = c.filter((v) => v === 1).length; const fx = fixedOf(r.st.uid);
+        const box = a.items.filter((it, i) => it.type !== "write" && x.correct?.[i] != null && x.correct[i] < 1 && !fx.has(`${a.id}:${i}`)).length;
+        return `<tr><td>${r.st.section}</td><td>${r.st.no}</td><td>${esc(r.st.name)}</td><td class="c"><span class="cell-score score ${pctClass(best(x))}" data-sub="${a.id}|${r.st.uid}">${best(x)}</span></td><td class="c">${x.percent}</td><td class="c">${x.attempts || 1}</td><td class="c">${ok} / ${c.length - ok}</td><td class="c">${box ? `<b style="color:#d64545">${box}</b>` : "✅"}</td><td class="small">${new Date(x.submittedAt).toLocaleString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${late(r) ? ` <span class="badge late">geç</span>` : ""}</td></tr>`; }).join("")}</table></div></div>`;
+  bindSec(() => { try { localStorage.setItem("ewbh-last-sec", secFilter); } catch {} vLast(m); });
+  $("#aSel").onchange = (e) => { lastAid = e.target.value; vLast(m); };
+  const cp = $("#cp"); if (cp) cp.onclick = () => { navigator.clipboard?.writeText(msg); toast("Kopyalandı", "ok"); };
+  const wa = $("#wa"); if (wa) wa.onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+  $$("[data-sub]").forEach((c) => c.onclick = () => { const [aid, uid] = c.dataset.sub.split("|"); subModal(aid, uid, () => vLast(m)); });
+}
 
 // ---------------------------------------------------------------- Genel bakış
 function vHome(m) {
@@ -333,7 +391,7 @@ function vRes(m) {
   };
 }
 
-function subModal(aid, uid) {
+function subModal(aid, uid, after) {
   const a = assignments.find((x) => x.id === aid), s = students.find((x) => x.uid === uid), sub = subOf(aid, uid);
   const wp = { ...(sub.autoWP || {}), ...(sub.writingPoints || {}) };
   const { el, close } = modal(`<h3>${esc(s.name)} · ${esc(a.title)}</h3>
@@ -347,7 +405,7 @@ function subModal(aid, uid) {
     el.querySelectorAll("[data-wp]").forEach((x) => { if (x.value !== "") wp[x.dataset.wp] = Math.min(Number(x.max), Math.max(0, Number(x.value))); });
     const r = computeResult(a, sub.answers || {}, wp);
     const patch = { writingPoints: wp, writingGraded: r.writingGraded, percent: r.percent, best: r.percent };
-    try { await api.saveSubmission({ ...sub, ...patch }); Object.assign(sub, patch); close(); vRes($("#main")); toast("Puan kaydedildi", "ok"); }
+    try { await api.saveSubmission({ ...sub, ...patch }); Object.assign(sub, patch); close(); (after || (() => vRes($("#main"))))(); toast("Puan kaydedildi", "ok"); }
     catch (e) { toast(friendlyError(e), "bad"); }
   };
 }
