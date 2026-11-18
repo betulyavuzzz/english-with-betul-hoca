@@ -1,5 +1,5 @@
 // Rozetler ve avatar kilit istatistikleri — öğrenci sayfası ve öğretmen paneli aynı hesabı kullanır
-import { computeXP } from "./game.js?v=27";
+import { computeXP } from "./game.js?v=28";
 
 // ctx: { assignments, subs: {aid: sub}, points, feedback, practice, profile, isStar }
 const today = () => new Date().toISOString().slice(0, 10);
@@ -64,6 +64,6 @@ export function computeStats(ctx) {
     lv: levelOf(ctx), hw: done.length, perfect: done.filter((x) => scoreOf(x) >= 100).length,
     games: ctx.practice?.xpGames || 0, plus: (ctx.points || []).filter((p) => p.delta > 0).reduce((x, p) => x + p.delta, 0),
     star: (ctx.profile?.wasStar || ctx.isStar) ? 1 : 0,
-    streak: bestStreak(ctx), badges: computeBadges(ctx).filter((x) => x.on).length, fix: (ctx.practice?.fixed || []).length, holiday: holidayDone(ctx)
+    streak: bestStreak(ctx), badges: computeBadges(ctx).filter((x) => x.on).length, fix: (ctx.practice?.fixed || []).length, holiday: holidayDone(ctx), owned: ctx.practice?.owned || []
   };
 }

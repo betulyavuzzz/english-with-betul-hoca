@@ -1,5 +1,5 @@
 // Oyunlaştırma: avatar, XP, seviye, rozetler
-import { esc } from "./ui.js?v=27";
+import { esc } from "./ui.js?v=28";
 
 export const AV_BASES = ["🦊", "🐼", "🐯", "🦁", "🐸", "🐨", "🐰", "🐻", "🐵", "🦄", "🐧", "🐙", "🐶", "🐱", "🐲", "🦉", "🐬", "🦖", "🤖", "👽", "🐹", "🐣", "🐮", "🦝", "🐭"];
 export const AV_BGS = [
@@ -10,6 +10,23 @@ export const AV_BGS = [
 // ---- Kilitli avatar eşyaları ----
 // req: { lv } seviye · { hw } ödev sayısı · { perfect } 100 alınan ödev · { games } kelime oyunu
 //      { plus } ders içi artı · { star } haftanın yıldızı · { streak } ödev serisi · { badges } rozet sayısı · { fix } tekrar kutusunda düzeltilen
+// ---- Mağaza: sadece altınla alınan eşyalar (req: { shop: id })
+export const SHOP = [
+  { id: "b_polar", kind: "base", e: "🐻‍❄️", n: "Kutup ayısı", price: 80 }, { id: "b_butterfly", kind: "base", e: "🦋", n: "Kelebek", price: 60 },
+  { id: "b_puffer", kind: "base", e: "🐡", n: "Balon balığı", price: 50 }, { id: "b_zebra", kind: "base", e: "🦓", n: "Zebra", price: 70 },
+  { id: "b_kangaroo", kind: "base", e: "🦘", n: "Kanguru", price: 70 }, { id: "b_trex", kind: "base", e: "🦕", n: "Uzun boyunlu", price: 120 },
+  { id: "a_magic", kind: "acc", e: "🎩", n: "Sihirbaz şapkası", price: 60 }, { id: "a_head", kind: "acc", e: "🎧", n: "Kulaklık", price: 40 },
+  { id: "a_straw", kind: "acc", e: "👒", n: "Hasır şapka", price: 30 }, { id: "a_rainbow", kind: "acc", e: "🌈", n: "Gökkuşağı", price: 80 },
+  { id: "a_diamond", kind: "acc", e: "💎", n: "Elmas", price: 150 },
+  { id: "s_skate", kind: "side", e: "🛹", n: "Kaykay", price: 50 }, { id: "s_game", kind: "side", e: "🎮", n: "Oyun konsolu", price: 70 },
+  { id: "s_cup", kind: "side", e: "🏆", n: "Kupa", price: 100 }, { id: "s_rocket", kind: "side", e: "🚀", n: "Roket", price: 120 },
+  { id: "s_dragon", kind: "side", e: "🐉", n: "Minik ejderha", price: 200 },
+  { id: "g_cloud", kind: "bg", c: ["#ffdde1", "#ee9ca7"], n: "Pembe bulut", price: 60 }, { id: "g_space", kind: "bg", c: ["#0f0c29", "#302b63"], n: "Uzay", price: 100 },
+  { id: "g_gold", kind: "bg", c: ["#f7971e", "#ffd200"], n: "Altın", price: 150 }
+];
+export const SHOP_PRICE = Object.fromEntries(SHOP.map((x) => [x.id, x.price]));
+const shopOf = (k) => SHOP.filter((x) => x.kind === k).map((x) => ({ e: x.e, c: x.c, n: x.n, req: { shop: x.id } }));
+
 export const LOCKED_BASES = [
   { e: "🐉", n: "Ejderha", req: { lv: 3 } }, { e: "🦩", n: "Flamingo", req: { hw: 3 } }, { e: "🐳", n: "Balina", req: { games: 5 } },
   { e: "🦕", n: "Dinozor", req: { lv: 4 } }, { e: "🦜", n: "Papağan", req: { plus: 5 } }, { e: "🐝", n: "Arı", req: { hw: 5 } },
@@ -20,7 +37,8 @@ export const LOCKED_BASES = [
   { e: "🦦", n: "Su samuru", req: { fix: 5 } }, { e: "🐢", n: "Kaplumbağa", req: { hw: 7 } }, { e: "🐞", n: "Uğur böceği", req: { plus: 10 } },
   { e: "🦔", n: "Kirpi", req: { fix: 15 } }, { e: "🦥", n: "Tembel hayvan", req: { games: 20 } }, { e: "🧜", n: "Deniz kızı", req: { perfect: 3 } },
   { e: "🦭", n: "Fok", req: { streak: 8 } }, { e: "🐘", n: "Fil", req: { hw: 15 } }, { e: "🧛", n: "Vampir", req: { lv: 7 } },
-  { e: "🦒", n: "Zürafa", req: { badges: 10 } }, { e: "🤠", n: "Kovboy", req: { lv: 9 } }, { e: "🧞", n: "Cin", req: { lv: 10 } }
+  { e: "🦒", n: "Zürafa", req: { badges: 10 } }, { e: "🤠", n: "Kovboy", req: { lv: 9 } }, { e: "🧞", n: "Cin", req: { lv: 10 } },
+  ...shopOf("base")
 ];
 export const LOCKED_BGS = [
   { c: ["#0f0c29", "#302b63"], n: "Galaksi", fx: "stars", req: { lv: 3 } },
@@ -36,7 +54,8 @@ export const LOCKED_BGS = [
   { c: ["#00c9ff", "#92fe9d"], n: "Kuzey ışıkları", req: { lv: 9 } },
   { c: ["#141e30", "#243b55"], n: "Gece", req: { streak: 6 } },
   { c: ["#142850", "#c9a227"], n: "Kocatepe", req: { badges: 12 } },
-  { c: ["#4facfe", "#f9d423"], n: "Plaj", req: { holiday: 4 } }
+  { c: ["#4facfe", "#f9d423"], n: "Plaj", req: { holiday: 4 } },
+  ...shopOf("bg")
 ];
 export const AV_ACCS = [
   { e: "", n: "Yok", req: {} },
@@ -52,7 +71,8 @@ export const AV_ACCS = [
   { e: "🍓", n: "Çilek", req: { fix: 3 } }, { e: "🎈", n: "Balon", req: { hw: 4 } }, { e: "🍩", n: "Donut", req: { plus: 8 } },
   { e: "🌻", n: "Ayçiçeği", req: { games: 10 } }, { e: "🐾", n: "Pati", req: { streak: 5 } }, { e: "🪄", n: "Sihirli değnek", req: { perfect: 2 } },
   { e: "🌙", n: "Ay", req: { lv: 7 } }, { e: "🪩", n: "Disko topu", req: { badges: 8 } }, { e: "❄️", n: "Kar tanesi", req: { fix: 20 } },
-  { e: "🔮", n: "Kristal küre", req: { lv: 9 } }
+  { e: "🔮", n: "Kristal küre", req: { lv: 9 } },
+  ...shopOf("acc")
 ];
 // Yan eşya (avatarın sağ altında)
 export const AV_SIDES = [
@@ -69,7 +89,8 @@ export const AV_SIDES = [
   { e: "🥁", n: "Davul", req: { games: 6 } }, { e: "🧩", n: "Yapboz", req: { fix: 8 } }, { e: "📷", n: "Kamera", req: { lv: 5 } },
   { e: "🎻", n: "Keman", req: { perfect: 2 } }, { e: "🍕", n: "Pizza", req: { lv: 6 } }, { e: "🧪", n: "Deney tüpü", req: { badges: 7 } },
   { e: "🗝️", n: "Altın anahtar", req: { lv: 10 } },
-  { e: "🏖️", n: "Tatil şemsiyesi", req: { holiday: 4 } }, { e: "🍦", n: "Dondurma", req: { holiday: 2 } }
+  { e: "🏖️", n: "Tatil şemsiyesi", req: { holiday: 4 } }, { e: "🍦", n: "Dondurma", req: { holiday: 2 } },
+  ...shopOf("side")
 ];
 // Çerçeve efektleri
 export const AV_FRAMES = [
@@ -86,11 +107,11 @@ export const AV_FRAMES = [
   { id: "neon", n: "Neon", req: { badges: 9 } },
   { id: "crown", n: "Kral tacı 👑", req: { lv: 9 } }
 ];
-const REQ_TXT = { lv: (n) => `Lv${n}`, hw: (n) => `${n} ödev`, perfect: () => "💯", games: (n) => `${n} oyun`, plus: (n) => `+${n}`, star: () => "⭐ yıldız", streak: (n) => `🔥${n} seri`, badges: (n) => `${n} rozet`, fix: (n) => `🔁${n}`, holiday: (n) => `🏖️${n}` };
-const REQ_LONG = { lv: (n) => `${n}. seviyeye ulaş`, hw: (n) => `${n} ödev tamamla`, perfect: () => "bir ödevden 100 al", games: (n) => `${n} kelime oyunu oyna`, plus: (n) => `derste ${n} artı puan topla`, star: () => "haftanın yıldızları arasına gir", streak: (n) => `${n} ödevi arka arkaya yap`, badges: (n) => `${n} rozet kazan`, fix: (n) => `tekrar kutusunda ${n} soru düzelt`, holiday: (n) => `${n} tatil ödevi (Holiday Challenge) yap` };
+const REQ_TXT = { shop: (id) => `🪙${SHOP_PRICE[id] ?? ""}`, lv: (n) => `Lv${n}`, hw: (n) => `${n} ödev`, perfect: () => "💯", games: (n) => `${n} oyun`, plus: (n) => `+${n}`, star: () => "⭐ yıldız", streak: (n) => `🔥${n} seri`, badges: (n) => `${n} rozet`, fix: (n) => `🔁${n}`, holiday: (n) => `🏖️${n}` };
+const REQ_LONG = { shop: (id) => `🛒 mağazadan ${SHOP_PRICE[id] ?? ""} altına satın al`, lv: (n) => `${n}. seviyeye ulaş`, hw: (n) => `${n} ödev tamamla`, perfect: () => "bir ödevden 100 al", games: (n) => `${n} kelime oyunu oyna`, plus: (n) => `derste ${n} artı puan topla`, star: () => "haftanın yıldızları arasına gir", streak: (n) => `${n} ödevi arka arkaya yap`, badges: (n) => `${n} rozet kazan`, fix: (n) => `tekrar kutusunda ${n} soru düzelt`, holiday: (n) => `${n} tatil ödevi (Holiday Challenge) yap` };
 export const reqShort = (r) => Object.entries(r || {}).map(([k, v]) => REQ_TXT[k](v)).join(" ");
 export const reqLong = (r) => Object.entries(r || {}).map(([k, v]) => REQ_LONG[k](v)).join(" ve ");
-export const isUnlocked = (r, st) => Object.entries(r || {}).every(([k, v]) => (st[k] || 0) >= v);
+export const isUnlocked = (r, st) => Object.entries(r || {}).every(([k, v]) => k === "shop" ? (st.owned || []).includes(v) : (st[k] || 0) >= v);
 export const LEVELS = ["Starter", "Explorer", "Adventurer", "Rising Star", "Super Star", "Hero", "Super Hero", "Legend", "Champion", "Master"];
 export const LEVEL_COLORS = ["#9aa5b8", "#4cc9f0", "#43aa8b", "#f9c74f", "#f8961e", "#f3722c", "#e63946", "#9d4edd", "#c9a227", "#142850"];
 const XP_PER_LEVEL = 100;

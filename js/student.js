@@ -1,11 +1,12 @@
-import { api, isDemo, friendlyError } from "./api.js?v=27";
-import { SITE } from "./config.js?v=27";
-import { SKILLS } from "./defaults.js?v=27";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=27";
-import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=27";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP } from "./game.js?v=27";
-import { computeBadges, computeStats } from "./badges.js?v=27";
-import { wordsHome } from "./words.js?v=27";
+import { api, isDemo, friendlyError } from "./api.js?v=28";
+import { SITE } from "./config.js?v=28";
+import { SKILLS } from "./defaults.js?v=28";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=28";
+import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=28";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP, SHOP } from "./game.js?v=28";
+import { computeBadges, computeStats } from "./badges.js?v=28";
+import { streakInfo, goldInfo, weeklyQuests, QUEST_GOLD, QUEST_BONUS, petInfo, PET_SPECIES, PET_FOOD, albumSet, wordKey } from "./fun.js?v=28";
+import { wordsHome } from "./words.js?v=28";
 
 const app = $("#app");
 let settings = null;
@@ -101,7 +102,20 @@ async function loadMine() {
   rememberMe();
   await refreshStars();
   if (stars?.list?.slice(0, 3).some((x) => x.uid === me.uid) && prof && !prof.wasStar) { prof.wasStar = true; api.saveProfile(prof).catch(() => {}); }
+  markDay();
 }
+const pr0 = () => practice || { uid: me.uid, grade: me.grade, section: me.section, games: 0, log: {}, best: {} };
+async function savePr(p) { p.updatedAt = Date.now(); practice = p; try { await api.savePractice(p); return true; } catch (e) { toast("Kaydedilemedi: " + friendlyError(e), "bad"); return false; } }
+function markDay() {
+  const k = dayKey(), p = pr0();
+  if ((p.days || []).includes(k)) return;
+  const before = streakInfo(p).current;
+  p.days = [...(p.days || []), k].slice(-120);
+  const si = streakInfo(p);
+  savePr(p).then((ok) => { if (ok) setTimeout(() => toast(`🔥 Günlük seri: ${si.current}. gün! +${si.gold - streakInfo({ days: (p.days || []).slice(0, -1) }).gold} 🪙`, "ok"), 900); });
+  void before;
+}
+const goldNow = () => goldInfo({ subs, practice, wordsets });
 // Kendi haftalık XP kaydını yaz, sonra şubenin ilk 3'ünü oku
 async function refreshStars() {
   try {
@@ -209,6 +223,7 @@ function showHome() {
         <h2>Hello, ${esc(me.name.split(" ")[0])}! 👋</h2>
         <p>${pending ? `Seni bekleyen <b>${pending}</b> ödev var. Hadi başlayalım!` : "Tüm ödevlerini bitirdin, harikasın! 🎉"}</p>
         <div class="xp"><div class="xp-top"><b>Lv ${X.level} · ${X.name}</b><span>${X.into}/${X.need} XP</span></div><div class="xp-bar"><span style="width:${(X.into / X.need) * 100}%"></span></div></div>
+        <div class="fun-chips"><span class="fchip gold">🪙 ${goldNow().balance} altın</span><span class="fchip fire">🔥 ${streakInfo(practice).current} gün seri</span>${practice?.pet ? `<span class="fchip">${petInfo({ subs, practice }).stage ? practice.pet.sp : "🥚"} ${esc(practice.pet.name || "")} ${petInfo({ subs, practice }).mood.e}</span>` : ""}</div>
       </div>
       <div class="stats">
         <div class="stat s1"><b>${done.length}</b><span>ödev bitti</span></div>
@@ -223,6 +238,7 @@ function showHome() {
       <button class="tab" data-t="pr">🚀 Gelişimim</button>
       <button class="tab" data-t="fb">💬 Geri bildirim</button>
       <button class="tab" data-t="bd">🏅 Rozetler</button>
+      <button class="tab" data-t="fun">🌍 Dünyam</button>
     </nav>
     <section id="tabBody"></section>`;
   $("#editAv").onclick = () => avatarBuilder(false);
@@ -239,7 +255,8 @@ function drawTab() {
   $$(".tab").forEach((b) => b.classList.toggle("on", b.dataset.t === tab));
   const body = $("#tabBody");
   if (tab === "wd") return wordsHome(body, wordsets, practice, onPlayed, settings.units[me.grade] || []);
-  body.innerHTML = ({ hw: hwList, pr: progressView, fb: fbView, bd: badgesView })[tab]();
+  body.innerHTML = ({ hw: hwList, pr: progressView, fb: fbView, bd: badgesView, fun: funView })[tab]();
+  if (tab === "fun") bindFun();
   $$("[data-start]").forEach((b) => b.onclick = () => start(b.dataset.start));
   $$("[data-review]").forEach((b) => b.onclick = () => review(b.dataset.review));
   $$("[data-box]").forEach((b) => b.onclick = startBox);
@@ -384,6 +401,91 @@ function fbView() {
   return `<div class="grid">${grades}${notes}</div>`;
 }
 
+// ---------------------------------------------------------------- Dünyam: görevler, altın, hayvan, mağaza, albüm
+let funSub = "quest";
+function funView() {
+  const G = goldNow(), S = streakInfo(practice);
+  const subTabs = [["quest", "🎯 Görevler"], ["pet", "🐣 Hayvanım"], ["shop", "🛒 Mağaza"], ["album", "📒 Albüm"]];
+  const top = `<div class="fun-top"><div class="fun-gold"><span>🪙</span><b>${G.balance}</b><small>altın</small></div>
+    <div class="fun-streak"><span>🔥</span><b>${S.current}</b><small>gün seri</small></div>
+    <p class="small muted" style="flex:1 1 260px;margin:0">Altın kazanmak için: ödev yap (+10), tekrar kutusundan soru düzelt (+1), kelime oyunu kazan (+2), her gün gir (+2…+7), görevleri bitir, albüme kelime ekle (+1).</p></div>
+    <div class="fun-tabs">${subTabs.map(([k, t]) => `<button class="ftab ${funSub === k ? "on" : ""}" data-fs="${k}">${t}</button>`).join("")}</div>`;
+  return top + `<div id="funBody">${({ quest: questView, pet: petView, shop: shopView, album: albumView })[funSub]()}</div>`;
+}
+function questView() {
+  const qs = weeklyQuests({ subs, practice, boxLeft: boxItems().length });
+  const n = qs.filter((q) => q.done).length;
+  return `<div class="card"><div class="row between"><h3 style="margin:0">🎯 Bu haftanın görevleri</h3><span class="small muted">${weekLabel()}</span></div>
+    <p class="small muted" style="margin:4px 0 12px">Her görev <b>+${QUEST_GOLD} 🪙</b>, üçü birden <b>+${QUEST_BONUS} 🪙 bonus</b>. Görevler her pazartesi yenilenir.</p>
+    ${qs.map((q) => `<div class="quest ${q.done ? "done" : ""}"><span class="qe">${q.done ? "✅" : q.e}</span><div style="flex:1"><b>${q.t}</b><div class="xp-bar" style="margin-top:6px"><span style="width:${(q.p / q.target) * 100}%"></span></div></div><b class="qn">${q.p}/${q.target}</b></div>`).join("")}
+    ${n === 3 ? `<div class="remind" style="margin-top:12px">🏆 <div><b>Haftanın tüm görevlerini bitirdin!</b> Bonus altının hesabında.</div></div>` : ""}</div>`;
+}
+function claimQuests() {
+  const qs = weeklyQuests({ subs, practice, boxLeft: boxItems().length });
+  const wk = weekKey(), p = pr0(), w = { ...((p.quests || {})[wk] || { done: [] }) };
+  const newly = qs.filter((q) => q.done && !w.done.includes(q.id));
+  if (!newly.length && !(qs.every((q) => q.done) && !w.bonus)) return;
+  w.done = [...w.done, ...newly.map((q) => q.id)];
+  let g = newly.length * QUEST_GOLD;
+  if (qs.every((q) => q.done) && !w.bonus) { w.bonus = true; g += QUEST_BONUS; }
+  p.quests = { ...(p.quests || {}), [wk]: w };
+  savePr(p).then((ok) => { if (ok) { toast(`🎯 Görev tamamlandı! +${g} 🪙`, "ok"); confetti(); } });
+}
+function petView() {
+  const P = petInfo({ subs, practice });
+  if (!P.pet) return `<div class="card center"><h3>🥚 Bir yumurtan var!</h3><p class="muted">Bir hayvan seç ve ona isim ver. Ödev yaptıkça büyüyecek: yumurta → bebek → minik → genç → yetişkin → efsane!</p>
+    <div class="pick-grid" style="max-width:420px;margin:12px auto">${PET_SPECIES.map((e, i) => `<button class="pick ${i === 0 ? "on" : ""}" data-sp="${e}">${e}</button>`).join("")}</div>
+    <input id="petName" maxlength="12" placeholder="Hayvanının adı (örn. Pamuk)" style="max-width:260px;margin:0 auto 12px;display:block;text-align:center">
+    <button class="btn gold" id="petGo">🥚 Yumurtamı al</button></div>`;
+  const pet = P.pet, show = P.stage === 0 ? "🥚" : pet.sp;
+  return `<div class="card center pet-card">
+    <div class="pet-stage">${P.stage >= 5 ? '<span class="pet-crown">👑</span>' : ""}<span class="pet-e ${P.mood.e === "😢" ? "sad" : "happy"}" style="font-size:${P.size}px">${show}</span></div>
+    <h2 style="margin:6px 0 0">${esc(pet.name || "Hayvanım")}</h2>
+    <p class="muted" style="margin:4px 0">${P.stageName} · ${P.mood.e} ${P.mood.t}</p>
+    ${P.next ? `<div style="max-width:320px;margin:10px auto"><div class="xp-top small"><span>${P.next.n} olmasına</span><b>${P.toNext} büyüme puanı</b></div><div class="xp-bar"><span style="width:${Math.max(4, Math.round(((P.gp - P.curMin) / (P.next.min - P.curMin)) * 100))}%"></span></div></div>` : `<p><b>🏆 Hayvanın efsane oldu!</b></p>`}
+    <button class="btn gold" id="petFeed" ${P.fedToday ? "disabled" : ""}>${P.fedToday ? "😋 Bugün doydu" : `🍎 Besle (${PET_FOOD} 🪙)`}</button>
+    <p class="small muted" style="margin-top:10px">Büyüme puanı: her ödev +2, her 5 düzeltilen soru +1, her 3 kelime oyunu +1, her besleme +1. Beslemezsen acıkır ve üzülür!</p></div>`;
+}
+function shopView() {
+  const G = goldNow(), owned = new Set(practice?.owned || []);
+  const kinds = [["base", "🐾 Karakterler"], ["acc", "🎩 Şapka / takı"], ["side", "🎒 Yan eşyalar"], ["bg", "🎨 Arka planlar"]];
+  return kinds.map(([k, t]) => `<div class="card"><h3>${t}</h3><div class="shop-grid">${SHOP.filter((x) => x.kind === k).map((x) => {
+    const has = owned.has(x.id), can = G.balance >= x.price;
+    const vis = x.kind === "bg" ? `<span class="sw-in" style="display:inline-block;width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,${x.c[0]},${x.c[1]})"></span>` : `<span style="font-size:40px">${x.e}</span>`;
+    return `<div class="shop-item ${has ? "own" : ""}">${vis}<b>${esc(x.n)}</b>${has ? `<span class="badge ok">✓ Senin</span>` : `<button class="btn ${can ? "gold" : "ghost"} sm" data-buy="${x.id}" ${can ? "" : "disabled"}>🪙 ${x.price}</button>`}</div>`; }).join("")}</div></div>`).join("") +
+    `<p class="small muted center">Aldığın eşyayı giymek için avatarına dokun.</p>`;
+}
+function albumView() {
+  const have = albumSet(practice);
+  const sets = wordsets.filter((w) => w.words?.length);
+  if (!sets.length) return `<div class="card empty"><p>Henüz kelime seti yok.</p></div>`;
+  const tot = sets.reduce((x, w) => x + w.words.length, 0), got = sets.reduce((x, w) => x + w.words.filter((y) => have.has(wordKey(y.en))).length, 0);
+  return `<div class="card"><h3 style="margin:0">📒 Kelime albümüm · ${got}/${tot}</h3><p class="small muted" style="margin:4px 0 0">Kelime oyunlarında doğru bildiğin her kelime albüme çıkartma olarak yapışır (+1 🪙). Bir seti tamamlarsan <b>+10 🪙</b>!</p></div>` +
+    sets.map((w) => { const n = w.words.filter((y) => have.has(wordKey(y.en))).length; return `<div class="card"><div class="row between"><h3 style="margin:0">${esc(w.title)}</h3><b class="${n === w.words.length ? "" : "muted"}">${n === w.words.length ? "🏆 " : ""}${n}/${w.words.length}</b></div>
+      <div class="stickers">${w.words.map((y) => have.has(wordKey(y.en)) ? `<div class="stk on" title="${esc(y.tr)}"><span>${y.e || "⭐"}</span><b>${esc(y.en)}</b><small>${esc(y.tr)}</small></div>` : `<div class="stk"><span>❔</span><b>?</b><small>&nbsp;</small></div>`).join("")}</div></div>`; }).join("");
+}
+function bindFun() {
+  $$("[data-fs]").forEach((b) => b.onclick = () => { funSub = b.dataset.fs; drawTab(); });
+  if (funSub === "quest") claimQuests();
+  if ($("#petGo")) {
+    let sp = PET_SPECIES[0];
+    $$("[data-sp]").forEach((b) => b.onclick = () => { sp = b.dataset.sp; $$("[data-sp]").forEach((x) => x.classList.toggle("on", x === b)); });
+    $("#petGo").onclick = async () => { const p = pr0(); p.pet = { sp, name: ($("#petName").value || "").trim().slice(0, 12) || "Minik", born: dayKey(), fed: dayKey(), feeds: 0 }; if (await savePr(p)) { confetti(); drawTab(); } };
+  }
+  if ($("#petFeed")) $("#petFeed").onclick = async () => {
+    if (goldNow().balance < PET_FOOD) return toast(`Beslemek için ${PET_FOOD} 🪙 lazım. Ödev yap, altın kazan! 💪`);
+    const p = pr0(); p.spent = (p.spent || 0) + PET_FOOD; p.pet = { ...p.pet, fed: dayKey(), feeds: (p.pet.feeds || 0) + 1 };
+    if (await savePr(p)) { toast("😋 Afiyet olsun! +1 büyüme", "ok"); drawTab(); }
+  };
+  $$("[data-buy]").forEach((b) => b.onclick = async () => {
+    const it = SHOP.find((x) => x.id === b.dataset.buy); if (!it) return;
+    if (b.dataset.sure !== "1") { b.dataset.sure = "1"; b.textContent = "Emin misin? ✓"; return; }
+    if (goldNow().balance < it.price) return toast("Yeterli altının yok.");
+    const p = pr0(); p.spent = (p.spent || 0) + it.price; p.owned = [...new Set([...(p.owned || []), it.id])];
+    if (await savePr(p)) { confetti(); toast(`🎉 ${it.n} senin! Avatarına dokunup giyebilirsin.`, "ok"); drawTab(); }
+  });
+}
+
 function badgesView() {
   const bs = badgesFor(); const n = bs.filter((b) => b.on).length;
   return `<p class="muted"><b>${n}/${bs.length}</b> rozet kazandın${n === bs.length ? " — hepsini topladın! 🏆" : ". Hepsini toplayabilir misin?"}</p>
@@ -515,7 +617,7 @@ function confetti() {
   document.body.appendChild(box); setTimeout(() => box.remove(), 3500);
 }
 
-async function onPlayed({ setId, mode, score, total, moves, pairs, ms }) {
+async function onPlayed({ setId, mode, score, total, moves, pairs, ms, learned = [] }) {
   const lvBefore = xpNow().level;
   const p = practice || { uid: me.uid, grade: me.grade, section: me.section, games: 0, log: {}, best: {} };
   const k = dayKey();
@@ -530,6 +632,11 @@ async function onPlayed({ setId, mode, score, total, moves, pairs, ms }) {
     else if (ms / total < QUIZ_MIN_MS) { ok = false; msg = "Çok hızlı bastın! Dinleyip düşünerek cevap verirsen XP kazanırsın. 🎧"; }
   }
   if (mode === "memory" && score < MEMORY_MIN_STARS) { ok = false; msg = `XP için en az ${MEMORY_MIN_STARS} yıldız gerekiyor; daha az hamlede bitirmeye çalış! 🧠`; }
+  let newWords = 0;
+  if (ok && learned.length) {
+    const have = new Set(p.album || []); const add = learned.map(wordKey).filter((w) => w && !have.has(w));
+    if (add.length) { newWords = add.length; p.album = [...have, ...add]; p.albumLog = { ...(p.albumLog || {}), [k]: ((p.albumLog || {})[k] || 0) + add.length }; }
+  }
   const today = (p.xpLog || {})[k] || 0;
   const doneKeys = p.xpDay === k ? (p.xpKeys || []) : [];
   if (ok && doneKeys.includes(bk)) { ok = false; msg = "Bu oyundan bugün XP aldın. Başka bir set ya da oyun dene! 🔁"; }
@@ -546,5 +653,6 @@ async function onPlayed({ setId, mode, score, total, moves, pairs, ms }) {
   if (ok) confetti();
   refreshStars();
   if (xpNow().level > lvBefore) toast(`⬆️ LEVEL UP! Lv ${xpNow().level} · ${xpNow().name}`, "ok");
+  if (newWords) msg += ` · 📒 Albümüne ${newWords} yeni kelime eklendi!`;
   return { xp: ok ? 2 : 0, msg };
 }

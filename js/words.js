@@ -1,5 +1,5 @@
 // Kelime kartları, hafıza oyunu, dinle-seç
-import { esc, shuffle, speak } from "./ui.js?v=27";
+import { esc, shuffle, speak } from "./ui.js?v=28";
 
 export function wordsHome(root, sets, practice, onPlayed, units = []) {
   if (!sets.length) { root.innerHTML = `<div class="card empty"><div class="big">🃏</div><p>Öğretmenin kelime seti ekleyince burada oyun oynayabileceksin.</p></div>`; return; }
@@ -76,14 +76,14 @@ function memory(root, w, back, onPlayed) {
       <div class="row" style="justify-content:center;margin-top:14px"><button class="btn ghost" id="ag">🔁 Tekrar</button><button class="btn gold" id="bk">← Setler</button></div></div>`;
     root.querySelector("#ag").onclick = () => memory(root, w, back, onPlayed);
     root.querySelector("#bk").onclick = back;
-    Promise.resolve(onPlayed?.({ setId: w.id, mode: "memory", score: stars, moves, pairs: pick.length, ms: Date.now() - t0 })).then((r) => showReward(root, r));
+    Promise.resolve(onPlayed?.({ setId: w.id, mode: "memory", score: stars, moves, pairs: pick.length, ms: Date.now() - t0, learned: pick.map((x) => x.en) })).then((r) => showReward(root, r));
   };
   draw();
 }
 
 function quiz(root, w, back, onPlayed) {
   const qs = shuffle(w.words).slice(0, Math.min(8, w.words.length));
-  let i = 0, score = 0; const t0 = Date.now();
+  let i = 0, score = 0; const t0 = Date.now(); const learned = [];
   const draw = () => {
     const x = qs[i];
     const opts = shuffle([x, ...shuffle(w.words.filter((y) => y !== x)).slice(0, 3)]);
@@ -94,7 +94,7 @@ function quiz(root, w, back, onPlayed) {
     setTimeout(() => speak(x.en), 300);
     root.querySelectorAll(".opt").forEach((b) => b.onclick = () => {
       root.querySelectorAll(".opt").forEach((o) => { o.disabled = true; if (o.dataset.ok === "1") o.classList.add("right"); });
-      if (b.dataset.ok === "1") score++; else b.classList.add("wrong");
+      if (b.dataset.ok === "1") { score++; learned.push(x.en); } else b.classList.add("wrong");
       setTimeout(() => { i++; i < qs.length ? draw() : done(); }, 900);
     });
   };
@@ -103,7 +103,7 @@ function quiz(root, w, back, onPlayed) {
       <div class="row" style="justify-content:center;margin-top:14px"><button class="btn ghost" id="ag">🔁 Tekrar</button><button class="btn gold" id="bk">← Setler</button></div></div>`;
     root.querySelector("#ag").onclick = () => quiz(root, w, back, onPlayed);
     root.querySelector("#bk").onclick = back;
-    Promise.resolve(onPlayed?.({ setId: w.id, mode: "quiz", score, total: qs.length, ms: Date.now() - t0 })).then((r) => showReward(root, r));
+    Promise.resolve(onPlayed?.({ setId: w.id, mode: "quiz", score, total: qs.length, ms: Date.now() - t0, learned })).then((r) => showReward(root, r));
   };
   draw();
 }
