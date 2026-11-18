@@ -574,3 +574,9 @@ body.print-only #printArea { display: block; padding: 16px; background: #fff; mi
 .stickers{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px}.stk{display:flex;flex-direction:column;align-items:center;padding:10px 6px;border-radius:14px;background:#f1eee6;border:2px dashed #d9d2bf;color:#9a917a}.stk span{font-size:28px}.stk.on{background:#fff;border:2px solid var(--gold,#c9a227);color:var(--ink,#1b2236);box-shadow:0 3px 0 #e8d7a0;transform:rotate(-1.5deg)}.stk.on:nth-child(even){transform:rotate(1.5deg)}.stk small{font-size:12px;color:#64708a}
 
 tr.clk{cursor:pointer}tr.clk:hover td{background:#fff8e1}
+
+.pet-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;max-width:640px;margin:12px auto}.pet-opt{background:#fff;border:3px solid #efe9da;border-radius:16px;padding:6px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;font:inherit}.pet-opt.on{border-color:var(--gold,#c9a227);background:#fff8e1}.pet-opt small{font-weight:800;color:#64708a}
+.pet-svg{display:block;margin:0 auto;overflow:visible}.pet-stage.pet-happy .pet-svg{animation:petHop 1.6s ease-in-out infinite}.pet-stage.pet-hungry .pet-svg{animation:petSway 2.4s ease-in-out infinite}.pet-stage.pet-sad .pet-svg{animation:petSad 3s ease-in-out infinite;filter:saturate(.55)}
+@keyframes petSway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.egg-wob{transform-origin:100px 200px;animation:petSway 1.8s ease-in-out infinite}
+.pet-say{display:inline-block;position:relative;background:#fff;border:2px solid #e6e0cf;border-radius:16px;padding:8px 14px;font-weight:800;margin-top:6px}.pet-say:after{content:"";position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);border:8px solid transparent;border-top-color:#e6e0cf;border-bottom:0}.pet-say.happy{background:#fff4f7;color:#c9184a}.pet-say.hungry{background:#fff8e1;color:#8a5a00}.pet-say.sad{background:#eef4ff;color:#2b62c4}

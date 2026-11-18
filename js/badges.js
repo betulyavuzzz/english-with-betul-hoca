@@ -1,5 +1,5 @@
 // Rozetler ve avatar kilit istatistikleri — öğrenci sayfası ve öğretmen paneli aynı hesabı kullanır
-import { computeXP } from "./game.js?v=30";
+import { computeXP } from "./game.js?v=31";
 
 // ctx: { assignments, subs: {aid: sub}, points, feedback, practice, profile, isStar }
 const today = () => new Date().toISOString().slice(0, 10);

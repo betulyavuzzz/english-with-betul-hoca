@@ -1,15 +1,16 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=30";
-import { SITE } from "./config.js?v=30";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=30";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=30";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=30";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=30";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=30";
-import { SEED_WORDSETS } from "./seed.js?v=30";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=30";
-import { computeBadges, computeStats } from "./badges.js?v=30";
-import { goldInfo, streakInfo, petInfo, albumSet } from "./fun.js?v=30";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong, reqShort, SHOP } from "./game.js?v=30";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=31";
+import { SITE } from "./config.js?v=31";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=31";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=31";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=31";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=31";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=31";
+import { SEED_WORDSETS } from "./seed.js?v=31";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=31";
+import { computeBadges, computeStats } from "./badges.js?v=31";
+import { goldInfo, streakInfo, petInfo, albumSet } from "./fun.js?v=31";
+import { petSVG } from "./petart.js?v=31";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong, reqShort, SHOP } from "./game.js?v=31";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -275,7 +276,7 @@ function stuCard(r, cats) {
       <div class="kpi"><b>🪙 ${G.balance}</b><span>altın (harcadı ${G.spent})</span></div>
       <div class="kpi"><b>🔥 ${r.S.current}</b><span>gün seri</span></div>
       <div class="kpi"><b>📒 ${r.album}</b><span>albüm kelimesi</span></div>
-      <div class="kpi"><b>${P.pet ? (P.stage ? P.pet.sp : "🥚") : "—"}</b><span>${P.pet ? `${esc(P.pet.name)} · ${esc(P.stageName)} ${P.mood.e}` : "hayvan yok"}</span></div>
+      <div class="kpi"><b>${P.pet ? petSVG(P.pet.sp, P.stage, P.mood.k, 64) : "—"}</b><span>${P.pet ? `${esc(P.pet.name)} · ${esc(P.stageName)} ${P.mood.e}` : "hayvan yok"}</span></div>
     </div>
     <p class="small muted">Altın kaynakları: ${Object.entries(G.parts).map(([k, v]) => `${lbl[k] || k} ${v}`).join(" · ")}</p>
     <h3>🏅 Kazandığı rozetler</h3><div style="font-size:15px">${r.b.filter((b) => b.on).map((b) => `<span class="badge" style="margin:3px;background:${b.c}22">${b.e} ${esc(b.n)}</span>`).join("") || '<span class="muted">Henüz yok</span>'}</div>

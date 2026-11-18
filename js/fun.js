@@ -1,5 +1,5 @@
 // Oyun dünyası: altın, günlük seri, haftalık görevler, evcil hayvan, kelime albümü
-import { dayKey, weekStart, weekKey } from "./game.js?v=30";
+import { dayKey, weekStart, weekKey } from "./game.js?v=31";
 
 const DAY = 86400000;
 const keyToDate = (k) => new Date(k + "T12:00:00");
@@ -80,6 +80,6 @@ export function petInfo(ctx) {
   let st = 0; PET_STAGES.forEach((s, i) => { if (gp >= s.min) st = i; });
   const next = PET_STAGES[st + 1];
   const fed = pet?.fed ? Math.round((keyToDate(dayKey()) - keyToDate(pet.fed)) / DAY) : 99;
-  const mood = fed <= 1 ? { e: "😊", t: "Mutlu" } : fed <= 3 ? { e: "😐", t: "Acıktı" } : { e: "😢", t: "Çok aç, onu besle!" };
+  const mood = fed <= 1 ? { k: "happy", e: "😊", t: "Mutlu" } : fed <= 3 ? { k: "hungry", e: "😐", t: "Acıktı" } : { k: "sad", e: "😢", t: "Çok aç, onu besle!" };
   return { pet, gp, curMin: PET_STAGES[st].min, stage: st, stageName: PET_STAGES[st].n, size: PET_STAGES[st].size, next, toNext: next ? next.min - gp : 0, mood, fedToday: pet?.fed === dayKey() };
 }

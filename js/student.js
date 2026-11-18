@@ -1,12 +1,13 @@
-import { api, isDemo, friendlyError } from "./api.js?v=30";
-import { SITE } from "./config.js?v=30";
-import { SKILLS } from "./defaults.js?v=30";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=30";
-import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=30";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP, SHOP } from "./game.js?v=30";
-import { computeBadges, computeStats } from "./badges.js?v=30";
-import { streakInfo, goldInfo, weeklyQuests, QUEST_GOLD, QUEST_BONUS, petInfo, PET_SPECIES, PET_FOOD, albumSet, wordKey } from "./fun.js?v=30";
-import { wordsHome } from "./words.js?v=30";
+import { api, isDemo, friendlyError } from "./api.js?v=31";
+import { SITE } from "./config.js?v=31";
+import { SKILLS } from "./defaults.js?v=31";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=31";
+import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=31";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP, SHOP } from "./game.js?v=31";
+import { computeBadges, computeStats } from "./badges.js?v=31";
+import { streakInfo, goldInfo, weeklyQuests, QUEST_GOLD, QUEST_BONUS, petInfo, PET_SPECIES, PET_FOOD, albumSet, wordKey } from "./fun.js?v=31";
+import { petSVG, PET_TYPES } from "./petart.js?v=31";
+import { wordsHome } from "./words.js?v=31";
 
 const app = $("#app");
 let settings = null;
@@ -434,12 +435,13 @@ function claimQuests() {
 function petView() {
   const P = petInfo({ subs, practice });
   if (!P.pet) return `<div class="card center"><h3>🥚 Bir yumurtan var!</h3><p class="muted">Bir hayvan seç ve ona isim ver. Ödev yaptıkça büyüyecek: yumurta → bebek → minik → genç → yetişkin → efsane!</p>
-    <div class="pick-grid" style="max-width:420px;margin:12px auto">${PET_SPECIES.map((e, i) => `<button class="pick ${i === 0 ? "on" : ""}" data-sp="${e}">${e}</button>`).join("")}</div>
+    <div class="pet-pick">${PET_SPECIES.map((e, i) => `<button class="pet-opt ${i === 0 ? "on" : ""}" data-sp="${e}">${petSVG(e, 2, "happy", 84)}<small>${PET_TYPES[e]?.n || ""}</small></button>`).join("")}</div>
     <input id="petName" maxlength="12" placeholder="Hayvanının adı (örn. Pamuk)" style="max-width:260px;margin:0 auto 12px;display:block;text-align:center">
     <button class="btn gold" id="petGo">🥚 Yumurtamı al</button></div>`;
-  const pet = P.pet, show = P.stage === 0 ? "🥚" : pet.sp;
+  const pet = P.pet;
   return `<div class="card center pet-card">
-    <div class="pet-stage">${P.stage >= 5 ? '<span class="pet-crown">👑</span>' : ""}<span class="pet-e ${P.mood.e === "😢" ? "sad" : "happy"}" style="font-size:${P.size}px">${show}</span></div>
+    <div class="pet-say ${P.mood.k}">${({ happy: P.stage ? "Seninle çok mutluyum! 💛" : "Yakında çıkıyorum! 🥚✨", hungry: "Karnım guruldadı… bir elma? 🍎", sad: "Çok acıktım… beni unutma 😢" })[P.mood.k]}</div>
+    <div class="pet-stage pet-${P.mood.k}">${petSVG(pet.sp, P.stage, P.mood.k, [150, 130, 150, 170, 190, 210][P.stage])}</div>
     <h2 style="margin:6px 0 0">${esc(pet.name || "Hayvanım")}</h2>
     <p class="muted" style="margin:4px 0">${P.stageName} · ${P.mood.e} ${P.mood.t}</p>
     ${P.next ? `<div style="max-width:320px;margin:10px auto"><div class="xp-top small"><span>${P.next.n} olmasına</span><b>${P.toNext} büyüme puanı</b></div><div class="xp-bar"><span style="width:${Math.max(4, Math.round(((P.gp - P.curMin) / (P.next.min - P.curMin)) * 100))}%"></span></div></div>` : `<p><b>🏆 Hayvanın efsane oldu!</b></p>`}
