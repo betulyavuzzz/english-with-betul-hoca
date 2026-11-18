@@ -1,13 +1,13 @@
-import { api, isDemo, friendlyError } from "./api.js?v=31";
-import { SITE } from "./config.js?v=31";
-import { SKILLS } from "./defaults.js?v=31";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=31";
-import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=31";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP, SHOP } from "./game.js?v=31";
-import { computeBadges, computeStats } from "./badges.js?v=31";
-import { streakInfo, goldInfo, weeklyQuests, QUEST_GOLD, QUEST_BONUS, petInfo, PET_SPECIES, PET_FOOD, albumSet, wordKey } from "./fun.js?v=31";
-import { petSVG, PET_TYPES } from "./petart.js?v=31";
-import { wordsHome } from "./words.js?v=31";
+import { api, isDemo, friendlyError } from "./api.js?v=32";
+import { SITE } from "./config.js?v=32";
+import { SKILLS } from "./defaults.js?v=32";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=32";
+import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=32";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP, SHOP } from "./game.js?v=32";
+import { computeBadges, computeStats } from "./badges.js?v=32";
+import { streakInfo, goldInfo, weeklyQuests, QUEST_GOLD, QUEST_BONUS, petInfo, PET_SPECIES, PET_FOOD, albumSet, wordKey } from "./fun.js?v=32";
+import { petSVG, PET_TYPES } from "./petart.js?v=32";
+import { wordsHome } from "./words.js?v=32";
 
 const app = $("#app");
 let settings = null;
@@ -446,6 +446,7 @@ function petView() {
     <p class="muted" style="margin:4px 0">${P.stageName} · ${P.mood.e} ${P.mood.t}</p>
     ${P.next ? `<div style="max-width:320px;margin:10px auto"><div class="xp-top small"><span>${P.next.n} olmasına</span><b>${P.toNext} büyüme puanı</b></div><div class="xp-bar"><span style="width:${Math.max(4, Math.round(((P.gp - P.curMin) / (P.next.min - P.curMin)) * 100))}%"></span></div></div>` : `<p><b>🏆 Hayvanın efsane oldu!</b></p>`}
     <button class="btn gold" id="petFeed" ${P.fedToday ? "disabled" : ""}>${P.fedToday ? "😋 Bugün doydu" : `🍎 Besle (${PET_FOOD} 🪙)`}</button>
+    <p class="small" style="margin:8px 0 0;color:#2b62c4"><b>👆 Hayvanına dokun, sana İngilizce bir şey söylesin!</b></p>
     <p class="small muted" style="margin-top:10px">Büyüme puanı: her ödev +2, her 5 düzeltilen soru +1, her 3 kelime oyunu +1, her besleme +1. Beslemezsen acıkır ve üzülür!</p></div>`;
 }
 function shopView() {
@@ -474,6 +475,15 @@ function bindFun() {
     $$("[data-sp]").forEach((b) => b.onclick = () => { sp = b.dataset.sp; $$("[data-sp]").forEach((x) => x.classList.toggle("on", x === b)); });
     $("#petGo").onclick = async () => { const p = pr0(); p.pet = { sp, name: ($("#petName").value || "").trim().slice(0, 12) || "Minik", born: dayKey(), fed: dayKey(), feeds: 0 }; if (await savePr(p)) { confetti(); drawTab(); } };
   }
+  const ps = $(".pet-stage");
+  if (ps && practice?.pet) ps.onclick = () => {
+    const P = petInfo({ subs, practice }), words = [...(practice?.album || [])];
+    const w = words.length ? words[Math.floor(Math.random() * words.length)] : null;
+    const lines = { happy: ["Hello! 👋", "I love English! 💛", "Let's play! 🎮", "You are my best friend! 🤗", w ? `I know the word “${w}”! 📒` : "Teach me new words! 📒", "Do your homework, I grow! 🌱"], hungry: ["I'm hungry! 🍎", "Can I have an apple, please? 🍎", "Yummy food? 😋"], sad: ["I'm so hungry… 😢", "Please feed me! 🍎", "I miss you! 💧"] }[P.mood.k];
+    const say = $(".pet-say"); if (say) say.textContent = lines[Math.floor(Math.random() * lines.length)];
+    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(say.textContent.replace(/[^\p{L}\p{N}\s'!?.,]/gu, "")); u.lang = "en-GB"; u.pitch = 1.6; u.rate = 1.05; speechSynthesis.speak(u); } catch {}
+    ps.classList.remove("tap"); void ps.offsetWidth; ps.classList.add("tap");
+  };
   if ($("#petFeed")) $("#petFeed").onclick = async () => {
     if (goldNow().balance < PET_FOOD) return toast(`Beslemek için ${PET_FOOD} 🪙 lazım. Ödev yap, altın kazan! 💪`);
     const p = pr0(); p.spent = (p.spent || 0) + PET_FOOD; p.pet = { ...p.pet, fed: dayKey(), feeds: (p.pet.feeds || 0) + 1 };

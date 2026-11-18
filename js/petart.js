@@ -50,12 +50,12 @@ function face(mood, kind, big = false) {
   const dark = kind === "panda";
   const eyeHi = dark ? "#fff" : "#fff";
   if (mood === "happy") {
-    return blush + `<circle cx="78" cy="${ey}" r="${9 * e}" fill="${INK}"/><circle cx="122" cy="${ey}" r="${9 * e}" fill="${INK}"/><circle cx="81" cy="${ey - 3}" r="${3.4 * e}" fill="${eyeHi}"/><circle cx="125" cy="${ey - 3}" r="${3.4 * e}" fill="${eyeHi}"/><circle cx="75" cy="${ey + 3}" r="1.6" fill="${eyeHi}"/><circle cx="119" cy="${ey + 3}" r="1.6" fill="${eyeHi}"/>`
+    return blush + `<g class="eyes"><circle cx="78" cy="${ey}" r="${9 * e}" fill="${INK}"/><circle cx="122" cy="${ey}" r="${9 * e}" fill="${INK}"/><circle cx="81" cy="${ey - 3}" r="${3.4 * e}" fill="${eyeHi}"/><circle cx="125" cy="${ey - 3}" r="${3.4 * e}" fill="${eyeHi}"/><circle cx="75" cy="${ey + 3}" r="1.6" fill="${eyeHi}"/><circle cx="119" cy="${ey + 3}" r="1.6" fill="${eyeHi}"/></g>`
       + (kind === "penguin" ? `<path d="M88 124 Q100 136 112 124" stroke="${INK}" stroke-width="4" fill="none" stroke-linecap="round"/>` : `<path d="M86 116 Q100 136 114 116 Z" fill="#7a2335"/><path d="M92 124 Q100 132 108 124 Q100 128 92 124 Z" fill="#ff7a8a"/>`);
   }
   if (mood === "hungry") {
     return `<ellipse cx="66" cy="114" rx="9" ry="5" fill="#ff8fab" opacity=".3"/><ellipse cx="134" cy="114" rx="9" ry="5" fill="#ff8fab" opacity=".3"/>`
-      + `<circle cx="78" cy="${ey}" r="${8 * e}" fill="${INK}"/><circle cx="122" cy="${ey}" r="${8 * e}" fill="${INK}"/><circle cx="81" cy="${ey - 4}" r="3" fill="${eyeHi}"/><circle cx="125" cy="${ey - 4}" r="3" fill="${eyeHi}"/>`
+      + `<g class="eyes"><circle cx="78" cy="${ey}" r="${8 * e}" fill="${INK}"/><circle cx="122" cy="${ey}" r="${8 * e}" fill="${INK}"/><circle cx="81" cy="${ey - 4}" r="3" fill="${eyeHi}"/><circle cx="125" cy="${ey - 4}" r="3" fill="${eyeHi}"/></g>`
       + `<path d="M68 84 L88 88 M132 84 L112 88" stroke="${INK}" stroke-width="3" stroke-linecap="round"/>`
       + `<path d="M86 124 q7 -6 14 0 q7 6 14 0" stroke="${INK}" stroke-width="4" fill="none" stroke-linecap="round"/>`
       + `<path d="M150 70 q8 12 0 18 q-8 -6 0 -18 Z" fill="#7fd3ff"><animateTransform attributeName="transform" type="translate" values="0 0;0 5;0 0" dur="1.6s" repeatCount="indefinite"/></path>`;
@@ -104,5 +104,5 @@ export function petSVG(sp, stage = 2, mood = "happy", px = 160) {
   const head = `<circle cx="100" cy="100" r="58" fill="${t.body}"/>`;
   return `<svg class="${cls}" viewBox="-10 -6 220 236" width="${px}" height="${px * 1.07}" aria-label="${t.n}">
     ${stage === 5 ? aura() : ""}${extras(mood)}
-    <g transform="translate(100 210) scale(${sc}) translate(-100 -210)">${tail}${backParts(t)}${body}${head}${frontParts(t)}${face(mood, t.kind, stage === 1)}${stageGear(stage)}</g></svg>`;
+    <g transform="translate(100 210) scale(${sc}) translate(-100 -210)"><g class="breath"><g class="tail">${tail}</g><g class="ears">${backParts(t)}</g>${body}<g class="headg">${head}${frontParts(t)}${face(mood, t.kind, stage === 1)}${stageGear(stage)}</g></g></g></svg>`;
 }
