@@ -1,16 +1,16 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=33";
-import { SITE } from "./config.js?v=33";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=33";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=33";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=33";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=33";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=33";
-import { SEED_WORDSETS } from "./seed.js?v=33";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=33";
-import { computeBadges, computeStats } from "./badges.js?v=33";
-import { goldInfo, streakInfo, petInfo, albumSet } from "./fun.js?v=33";
-import { petSVG } from "./petart.js?v=33";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong, reqShort, SHOP } from "./game.js?v=33";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=34";
+import { SITE } from "./config.js?v=34";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=34";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=34";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=34";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=34";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=34";
+import { SEED_WORDSETS } from "./seed.js?v=34";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=34";
+import { computeBadges, computeStats } from "./badges.js?v=34";
+import { goldInfo, streakInfo, petInfo, albumSet, petPublic } from "./fun.js?v=34";
+import { petSVG } from "./petart.js?v=34";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong, reqShort, SHOP } from "./game.js?v=34";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -839,9 +839,12 @@ const weekLabel = () => { const a = weekStart(); const b = new Date(a); b.setDat
 let starsCache = {};
 async function publishStars() {
   for (const st of students) {
-    const e = weeklyEntry(st, profiles[st.uid], { subs: submissions.filter((x) => x.uid === st.uid), points: points.filter((p) => p.uid === st.uid), practice: practices.find((p) => p.uid === st.uid) });
-    if (!e.xp || starsCache[st.uid] === e.xp + e.week) continue;
-    starsCache[st.uid] = e.xp + e.week;
+    const pr = practices.find((p) => p.uid === st.uid);
+    const e = weeklyEntry(st, profiles[st.uid], { subs: submissions.filter((x) => x.uid === st.uid), points: points.filter((p) => p.uid === st.uid), practice: pr });
+    e.pet = petPublic({ subs: Object.fromEntries(submissions.filter((x) => x.uid === st.uid).map((x) => [x.assignmentId, x])), practice: pr });
+    const ck = e.xp + e.week + JSON.stringify(e.pet);
+    if ((!e.xp && !e.pet) || starsCache[st.uid] === ck) continue;
+    starsCache[st.uid] = ck;
     await api.saveWeekly(e);
   }
 }

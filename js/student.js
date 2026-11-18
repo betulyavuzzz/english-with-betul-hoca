@@ -1,13 +1,13 @@
-import { api, isDemo, friendlyError } from "./api.js?v=33";
-import { SITE } from "./config.js?v=33";
-import { SKILLS } from "./defaults.js?v=33";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=33";
-import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=33";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP, SHOP } from "./game.js?v=33";
-import { computeBadges, computeStats } from "./badges.js?v=33";
-import { streakInfo, goldInfo, weeklyQuests, QUEST_GOLD, QUEST_BONUS, petInfo, PET_SPECIES, PET_FOOD, albumSet, wordKey } from "./fun.js?v=33";
-import { petSVG, PET_TYPES } from "./petart.js?v=33";
-import { wordsHome } from "./words.js?v=33";
+import { api, isDemo, friendlyError } from "./api.js?v=34";
+import { SITE } from "./config.js?v=34";
+import { SKILLS } from "./defaults.js?v=34";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=34";
+import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=34";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP, SHOP } from "./game.js?v=34";
+import { computeBadges, computeStats } from "./badges.js?v=34";
+import { streakInfo, goldInfo, weeklyQuests, QUEST_GOLD, QUEST_BONUS, petInfo, PET_SPECIES, PET_FOOD, albumSet, wordKey, petPublic, moodOf } from "./fun.js?v=34";
+import { petSVG, PET_TYPES, gardenHtml } from "./petart.js?v=34";
+import { wordsHome } from "./words.js?v=34";
 
 const app = $("#app");
 let settings = null;
@@ -121,7 +121,8 @@ const goldNow = () => goldInfo({ subs, practice, wordsets });
 async function refreshStars() {
   try {
     const e = weeklyEntry(me, profile?.avatar, { subs: Object.values(subs), points, practice });
-    if (e.xp > 0) await api.saveWeekly(e);
+    e.pet = petPublic({ subs, practice });
+    if (e.xp > 0 || e.pet) await api.saveWeekly(e);
     const all = (await api.listWeekly(me.grade, me.section, weekKey())).filter((x) => x.xp > 0).sort((a, b) => b.xp - a.xp);
     const myXp = e.xp, above = all.filter((x) => x.xp > myXp && x.uid !== me.uid);
     const next = above.length ? Math.min(...above.map((x) => x.xp)) : null;
@@ -406,12 +407,12 @@ function fbView() {
 let funSub = "quest";
 function funView() {
   const G = goldNow(), S = streakInfo(practice);
-  const subTabs = [["quest", "🎯 Görevler"], ["pet", "🐣 Hayvanım"], ["shop", "🛒 Mağaza"], ["album", "📒 Albüm"]];
+  const subTabs = [["quest", "🎯 Görevler"], ["pet", "🐣 Hayvanım"], ["garden", "🏞️ Sınıf bahçesi"], ["shop", "🛒 Mağaza"], ["album", "📒 Albüm"]];
   const top = `<div class="fun-top"><div class="fun-gold"><span>🪙</span><b>${G.balance}</b><small>altın</small></div>
     <div class="fun-streak"><span>🔥</span><b>${S.current}</b><small>gün seri</small></div>
     <p class="small muted" style="flex:1 1 260px;margin:0">Altın kazanmak için: ödev yap (+10), tekrar kutusundan soru düzelt (+1), kelime oyunu kazan (+2), her gün gir (+2…+7), görevleri bitir, albüme kelime ekle (+1).</p></div>
     <div class="fun-tabs">${subTabs.map(([k, t]) => `<button class="ftab ${funSub === k ? "on" : ""}" data-fs="${k}">${t}</button>`).join("")}</div>`;
-  return top + `<div id="funBody">${({ quest: questView, pet: petView, shop: shopView, album: albumView })[funSub]()}</div>`;
+  return top + `<div id="funBody">${({ quest: questView, pet: petView, garden: () => `<div id="gBox"><p class="muted center">Bahçe yükleniyor… 🌱</p></div>`, shop: shopView, album: albumView })[funSub]()}</div>`;
 }
 function questView() {
   const qs = weeklyQuests({ subs, practice, boxLeft: boxItems().length });
@@ -467,13 +468,33 @@ function albumView() {
     sets.map((w) => { const n = w.words.filter((y) => have.has(wordKey(y.en))).length; return `<div class="card"><div class="row between"><h3 style="margin:0">${esc(w.title)}</h3><b class="${n === w.words.length ? "" : "muted"}">${n === w.words.length ? "🏆 " : ""}${n}/${w.words.length}</b></div>
       <div class="stickers">${w.words.map((y) => have.has(wordKey(y.en)) ? `<div class="stk on" title="${esc(y.tr)}"><span>${y.e || "⭐"}</span><b>${esc(y.en)}</b><small>${esc(y.tr)}</small></div>` : `<div class="stk"><span>❔</span><b>?</b><small>&nbsp;</small></div>`).join("")}</div></div>`; }).join("");
 }
+async function loadGarden() {
+  let list = [];
+  try { list = await api.listClassPets(me.grade, me.section); } catch (e) { console.warn(e); }
+  const mine = petPublic({ subs, practice });
+  list = list.filter((x) => x.uid !== me.uid);
+  if (mine) list.push({ uid: me.uid, name: me.name, pet: mine });
+  const items = list.map((x) => ({ uid: x.uid, name: (x.name || "").split(" ")[0], petName: x.pet.name, sp: x.pet.sp, stage: x.pet.stage || 0, mood: moodOf(x.pet.fed).k, me: x.uid === me.uid }));
+  const box = $("#gBox"); if (!box) return;
+  box.innerHTML = gardenHtml(items, `🏞️ ${me.grade}-${me.section} Sınıf Bahçesi`) + `<p class="small muted center" style="margin-top:8px">⭐ işaretli olan senin hayvanın. Bir hayvana dokun, ne söylediğini gör! ${mine ? "" : "<b>Sen de bir hayvan seç, bahçeye katıl!</b>"}</p>`;
+  $$("[data-g]").forEach((el) => el.onclick = () => {
+    const x = items.find((i) => i.uid === el.dataset.g); if (!x) return;
+    $$(".zbubble").forEach((b) => b.remove());
+    const b = document.createElement("div"); b.className = "zbubble";
+    const say = { happy: ["Hello! 👋", "I'm happy! 💛", "Let's play! 🎮"], hungry: ["I'm hungry! 🍎", "Apple, please! 🍎"], sad: ["Please feed me! 😢", "I miss my friend… 💧"] }[x.mood];
+    b.innerHTML = `<b>${esc(x.petName)}</b> <span class="small">(${esc(x.name)})</span><br>“${say[Math.floor(Math.random() * say.length)]}”`;
+    el.appendChild(b); const st = el.querySelector(".pet-stage"); st.classList.remove("tap"); void st.offsetWidth; st.classList.add("tap");
+    setTimeout(() => b.remove(), 3000);
+  });
+}
 function bindFun() {
   $$("[data-fs]").forEach((b) => b.onclick = () => { funSub = b.dataset.fs; drawTab(); });
   if (funSub === "quest") claimQuests();
+  if (funSub === "garden") loadGarden();
   if ($("#petGo")) {
     let sp = PET_SPECIES[0];
     $$("[data-sp]").forEach((b) => b.onclick = () => { sp = b.dataset.sp; $$("[data-sp]").forEach((x) => x.classList.toggle("on", x === b)); });
-    $("#petGo").onclick = async () => { const p = pr0(); p.pet = { sp, name: ($("#petName").value || "").trim().slice(0, 12) || "Minik", born: dayKey(), fed: dayKey(), feeds: 0 }; if (await savePr(p)) { confetti(); drawTab(); } };
+    $("#petGo").onclick = async () => { const p = pr0(); p.pet = { sp, name: ($("#petName").value || "").trim().slice(0, 12) || "Minik", born: dayKey(), fed: dayKey(), feeds: 0 }; if (await savePr(p)) { confetti(); drawTab(); refreshStars(); } };
   }
   const ps = $(".pet-stage");
   if (ps && practice?.pet) ps.onclick = () => {
@@ -487,7 +508,7 @@ function bindFun() {
   if ($("#petFeed")) $("#petFeed").onclick = async () => {
     if (goldNow().balance < PET_FOOD) return toast(`Beslemek için ${PET_FOOD} 🪙 lazım. Ödev yap, altın kazan! 💪`);
     const p = pr0(); p.spent = (p.spent || 0) + PET_FOOD; p.pet = { ...p.pet, fed: dayKey(), feeds: (p.pet.feeds || 0) + 1 };
-    if (await savePr(p)) { toast("😋 Afiyet olsun! +1 büyüme", "ok"); drawTab(); }
+    if (await savePr(p)) { toast("😋 Afiyet olsun! +1 büyüme", "ok"); drawTab(); refreshStars(); }
   };
   $$("[data-buy]").forEach((b) => b.onclick = async () => {
     const it = SHOP.find((x) => x.id === b.dataset.buy); if (!it) return;

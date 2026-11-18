@@ -106,3 +106,21 @@ export function petSVG(sp, stage = 2, mood = "happy", px = 160) {
     ${stage === 5 ? aura() : ""}${extras(mood)}
     <g transform="translate(100 210) scale(${sc}) translate(-100 -210)"><g class="breath"><g class="tail">${tail}</g><g class="ears">${backParts(t)}</g>${body}<g class="headg">${head}${frontParts(t)}${face(mood, t.kind, stage === 1)}${stageGear(stage)}</g></g></g></svg>`;
 }
+
+// Bahçe sahnesi (öğrenci sayfası): list = [{ uid, name, petName, sp, stage, mood, me }]
+const escH = (x) => String(x ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+export function gardenHtml(list, title, stageNames = []) {
+  const n = list.length, cols = Math.max(3, Math.ceil(Math.sqrt(n * 1.8))), rws = Math.max(1, Math.ceil(n / cols));
+  let seed = 11; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const cnt = (k) => list.filter((x) => x.mood === k).length;
+  const order = [...list].sort((a, b) => a.stage - b.stage);
+  return `<div class="zoo zoo-s" id="zoo"><div class="zoo-top"><b>${escH(title)}</b><span>😊 ${cnt("happy")} · 😐 ${cnt("hungry")} · 😢 ${cnt("sad")}</span></div>
+    <div class="zoo-sun">☀️</div><div class="zoo-cloud c1"></div><div class="zoo-cloud c2"></div>
+    <div class="zoo-deco">${Array.from({ length: 12 }, (_, i) => `<span style="left:${(i * 8.3 + rnd() * 4) % 98}%;bottom:${rnd() * 60}%;font-size:${16 + rnd() * 14}px">${["🌷", "🌼", "🌳", "🍄", "🌻", "🌿"][i % 6]}</span>`).join("")}</div>
+    ${order.map((x, i) => { const c = i % cols, rw = Math.floor(i / cols);
+      const l = ((c + 0.5) / cols) * 100 + (rnd() - 0.5) * (60 / cols), t = 52 + ((rw + 0.5) / rws) * 44 + (rnd() - 0.5) * 4, d = 6 + rnd() * 6;
+      return `<div class="zpet ${x.me ? "me" : ""}" data-g="${escH(x.uid)}" style="left:${l}%;top:${t}%;z-index:${Math.round(t)};--d:${d}s;--dx:${20 + rnd() * 34}px;animation-delay:-${rnd() * d}s">
+        <div class="pet-stage pet-${x.mood}">${petSVG(x.sp, x.stage, x.mood, Math.round((70 + x.stage * 10) * (n > 24 ? 0.78 : n > 14 ? 0.9 : 1)))}</div>
+        <div class="zname">${x.me ? "⭐ " : ""}${escH(x.name)}<small>${escH(x.petName)}</small></div></div>`; }).join("")}
+    ${!n ? `<div class="zoo-empty">Bahçe henüz boş 🥚<br><small>Hayvanını seç, bahçeye ilk sen gel!</small></div>` : ""}</div>`;
+}

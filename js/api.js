@@ -1,9 +1,9 @@
 // =============================================================
 //  Veri katmanı: Firebase (gerçek) veya DEMO (tarayıcı içi)
 // =============================================================
-import { FIREBASE_CONFIG, TEACHER_EMAILS, STUDENT_DOMAIN, DEMO } from "./config.js?v=33";
-import { DEFAULT_SETTINGS } from "./defaults.js?v=33";
-import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js?v=33";
+import { FIREBASE_CONFIG, TEACHER_EMAILS, STUDENT_DOMAIN, DEMO } from "./config.js?v=34";
+import { DEFAULT_SETTINGS } from "./defaults.js?v=34";
+import { SEED_ASSIGNMENTS, SEED_WORDSETS } from "./seed.js?v=34";
 
 const PIN_PREFIX = "ewbh-";            // Firebase en az 6 karakter istiyor
 const TR = { "İ": "i", "I": "i", "ı": "i", "Ç": "c", "ç": "c", "Ğ": "g", "ğ": "g", "Ö": "o", "ö": "o", "Ş": "s", "ş": "s", "Ü": "u", "ü": "u" };
@@ -141,6 +141,7 @@ function demoBackend() {
     async listPractice(grade) { return Object.values(load().practice).filter((p) => p.grade === grade); },
     async saveWeekly(e) { const d = load(); d.weekly = d.weekly || {}; d.weekly[`${e.grade}${e.section}_${e.uid}`] = e; save(d); },
     async listWeekly(grade, section, week) { return Object.values(load().weekly || {}).filter((e) => e.grade === grade && e.section === section && e.week === week); },
+    async listClassPets(grade, section) { return Object.values(load().weekly || {}).filter((e) => e.grade === grade && e.section === section && e.pet); },
     async resetDemo() { try { localStorage.removeItem(KEY); } catch {} setSession(null); }
   };
 }
@@ -308,7 +309,8 @@ async function firebaseBackend() {
     async savePractice(p) { await setDoc(doc(db, "practice", p.uid), p); },
     async listPractice(grade) { return all(query(collection(db, "practice"), where("grade", "==", grade))); },
     async saveWeekly(e) { await setDoc(doc(db, "weekly", `${e.grade}${e.section}_${e.uid}`), e); },
-    async listWeekly(grade, section, week) { return all(query(collection(db, "weekly"), where("grade", "==", grade), where("section", "==", section), where("week", "==", week))); }
+    async listWeekly(grade, section, week) { return all(query(collection(db, "weekly"), where("grade", "==", grade), where("section", "==", section), where("week", "==", week))); },
+    async listClassPets(grade, section) { return (await all(query(collection(db, "weekly"), where("grade", "==", grade), where("section", "==", section)))).filter((e) => e.pet); }
   };
 }
 
