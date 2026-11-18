@@ -1,10 +1,11 @@
-import { api, isDemo, friendlyError } from "./api.js?v=25";
-import { SITE } from "./config.js?v=25";
-import { SKILLS } from "./defaults.js?v=25";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=25";
-import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=25";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP } from "./game.js?v=25";
-import { wordsHome } from "./words.js?v=25";
+import { api, isDemo, friendlyError } from "./api.js?v=26";
+import { SITE } from "./config.js?v=26";
+import { SKILLS } from "./defaults.js?v=26";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=26";
+import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=26";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP } from "./game.js?v=26";
+import { computeBadges, computeStats } from "./badges.js?v=26";
+import { wordsHome } from "./words.js?v=26";
 
 const app = $("#app");
 let settings = null;
@@ -129,57 +130,11 @@ function status(a) {
   return { open: true };
 }
 
-function badgesFor() {
-  const done = Object.values(subs);
-  const pcts = done.map(scoreOf);
-  const plus = points.filter((p) => p.delta > 0).length;
-  const listenAll = done.some((s) => { const a = assignments.find((x) => x.id === s.assignmentId); return a && a.items.some((it) => it.type === "listen") && a.items.every((it, i) => it.type !== "listen" || s.correct?.[i] === 1); });
-  const onTime = done.filter((s) => { const a = assignments.find((x) => x.id === s.assignmentId); return a && (!a.dueDate || new Date(s.submittedAt).toISOString().slice(0, 10) <= a.dueDate); }).length;
-  const lv = xpNow().level;
-  const fixN = (practice?.fixed || []).length;
-  let streak = 0, bestStreak = 0;
-  for (const a of [...assignments].sort((a, b) => (a.week || 0) - (b.week || 0) || (a.createdAt || 0) - (b.createdAt || 0))) { if (subs[a.id]) { streak++; bestStreak = Math.max(bestStreak, streak); } else if (status(a).late) streak = 0; }
-  const early = done.some((s) => { const a = assignments.find((x) => x.id === s.assignmentId); return a?.createdAt && new Date(s.submittedAt).toDateString() === new Date(a.createdAt?.seconds ? a.createdAt.seconds * 1000 : a.createdAt).toDateString(); });
-  return [
-    { e: "🚀", n: "İlk Adım", d: "İlk ödevini yap", on: done.length >= 1, c: "#ff6a88" },
-    { e: "🐝", n: "Çalışkan Arı", d: "5 ödev tamamla", on: done.length >= 5, c: "#f6a04d" },
-    { e: "🏆", n: "Şampiyon", d: "10 ödev tamamla", on: done.length >= 10, c: "#c9a227" },
-    { e: "💯", n: "Kusursuz", d: "Bir ödevden 100 al", on: pcts.some((p) => p >= 100), c: "#43aa8b" },
-    { e: "⭐", n: "Yıldız Öğrenci", d: "3+ ödevde ortalama 85", on: pcts.length >= 3 && avg(pcts) >= 85, c: "#f9c74f" },
-    { e: "🎧", n: "Keskin Kulak", d: "Dinlemelerin hepsi doğru", on: listenAll, c: "#4cc9f0" },
-    { e: "⏰", n: "Dakik", d: "3 ödevi zamanında yap", on: onTime >= 3, c: "#7f7fd5" },
-    { e: "🙋", n: "Söz Ustası", d: "Derste 10 artı puan al", on: plus >= 10, c: "#e63946" },
-    { e: "🌟", n: "Öğretmenin Yıldızı", d: "Haftalık 5 yıldız al", on: feedback.some((f) => f.stars >= 5), c: "#ff7eb3" },
-    { e: "🃏", n: "Kelime Avcısı", d: "10 kelime oyununu başarıyla bitir", on: (practice?.xpGames || 0) >= 10, c: "#f3722c" },
-    { e: "🌟", n: "Haftanın Yıldızı", d: "Haftanın yıldızları arasına gir", on: !!stars?.list?.slice(0, 3).some((x) => x.uid === me.uid) || !!profile?.wasStar, c: "#c9a227" },
-    { e: "🦸", n: "Hero", d: "6. seviyeye ulaş", on: lv >= 6, c: "#9d4edd" },
-    { e: "🔁", n: "Hata Avcısı", d: "Tekrar kutusundan 10 soru düzelt", on: fixN >= 10, c: "#2b9348" },
-    { e: "🧹", n: "Tertemiz", d: "Tekrar kutunu tamamen boşalt", on: fixN > 0 && !boxItems().length, c: "#4cc9f0" },
-    { e: "🔥", n: "Seri Ustası", d: "5 ödevi arka arkaya yap", on: bestStreak >= 5, c: "#f3722c" },
-    { e: "🐦", n: "Erken Kuş", d: "Bir ödevi verildiği gün yap", on: early, c: "#43aa8b" },
-    { e: "💎", n: "Mükemmeliyetçi", d: "3 ödevden 100 al", on: pcts.filter((p) => p >= 100).length >= 3, c: "#7f7fd5" },
-    { e: "📚", n: "Kitap Kurdu", d: "20 ödev tamamla", on: done.length >= 20, c: "#9d4edd" },
-    { e: "🧠", n: "Hafıza Ustası", d: "25 kelime oyununu başarıyla bitir", on: (practice?.xpGames || 0) >= 25, c: "#ff6a88" },
-    { e: "🎤", n: "Sınıfın Sesi", d: "Derste 20 artı puan al", on: plus >= 20, c: "#e63946" },
-    { e: "👑", n: "Efsane", d: "8. seviyeye ulaş", on: lv >= 8, c: "#c9a227" },
-    { e: "🏖️", n: "Holiday Hero", d: "4 tatil ödevinin hepsini yap", on: holidayDone() >= 4, c: "#4facfe" }
-  ];
-}
+const bctx = () => ({ assignments, subs, points, feedback, practice, profile, isStar: !!stars?.list?.slice(0, 3).some((x) => x.uid === me.uid) });
+function badgesFor() { return computeBadges(bctx()); }
 
 // ---------------------------------------------------------------- Avatar oluşturucu
-const holidayDone = () => assignments.filter((a) => /holiday challenge/i.test(a.title || "") && subs[a.id]).length;
-function avatarStats() {
-  const done = Object.values(subs);
-  const chrono = [...assignments].sort((a, b) => (a.week || 0) - (b.week || 0) || (a.createdAt || 0) - (b.createdAt || 0));
-  let streak = 0, best = 0;
-  for (const a of chrono) { if (subs[a.id]) { streak++; best = Math.max(best, streak); } else if (status(a).late) streak = 0; }
-  return {
-    lv: xpNow().level, hw: done.length, perfect: done.filter((x) => scoreOf(x) >= 100).length,
-    games: practice?.xpGames || 0, plus: points.filter((p) => p.delta > 0).reduce((x, p) => x + p.delta, 0),
-    star: (profile?.wasStar || stars?.list?.slice(0, 3).some((x) => x.uid === me.uid)) ? 1 : 0,
-    streak: best, badges: badgesFor().filter((x) => x.on).length, fix: (practice?.fixed || []).length, holiday: holidayDone()
-  };
-}
+function avatarStats() { return computeStats(bctx()); }
 function avatarCatalog() {
   const free = (e) => ({ e, n: "", req: {} });
   return {
