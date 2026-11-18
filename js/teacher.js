@@ -1,14 +1,15 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=28";
-import { SITE } from "./config.js?v=28";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=28";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=28";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=28";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=28";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=28";
-import { SEED_WORDSETS } from "./seed.js?v=28";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=28";
-import { computeBadges, computeStats } from "./badges.js?v=28";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong } from "./game.js?v=28";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=29";
+import { SITE } from "./config.js?v=29";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=29";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=29";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=29";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=29";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=29";
+import { SEED_WORDSETS } from "./seed.js?v=29";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=29";
+import { computeBadges, computeStats } from "./badges.js?v=29";
+import { goldInfo, streakInfo, petInfo, albumSet } from "./fun.js?v=29";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong } from "./game.js?v=29";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -171,6 +172,12 @@ function stuCtx(st) {
   const subs = Object.fromEntries(submissions.filter((x) => x.uid === st.uid && as.some((a) => a.id === x.assignmentId)).map((x) => [x.assignmentId, x]));
   return { assignments: as, subs, points: points.filter((p) => p.uid === st.uid), feedback: feedback.filter((f) => f.uid === st.uid), practice: practices.find((p) => p.uid === st.uid) || null, profile: profFull[st.uid] || null, isStar: false };
 }
+function funCells(r) {
+  const ctx = stuCtx(r.st), pr = ctx.practice;
+  const G = goldInfo({ subs: ctx.subs, practice: pr, wordsets }), S = streakInfo(pr), P = petInfo({ subs: ctx.subs, practice: pr });
+  const pet = P.pet ? `<span title="${esc(P.stageName)} · ${esc(P.mood.t)}">${P.stage ? P.pet.sp : "🥚"} ${esc(P.pet.name || "")} ${P.mood.e}</span><br><span class="small muted">${esc(P.stageName)}</span>` : `<span class="muted small">yok</span>`;
+  return `<td class="c" title="Kazandığı ${G.earned} · harcadığı ${G.spent}"><b>${G.balance}</b><br><span class="small muted">${(pr?.owned || []).length} eşya aldı</span></td><td class="c">${S.current ? `<b>${S.current}</b> gün` : "–"}</td><td style="white-space:nowrap">${pet}</td><td class="c">${albumSet(pr).size}</td>`;
+}
 function vBadges(m) {
   const studs = visStudents().sort((x, y) => String(x.section).localeCompare(y.section) || Number(x.no) - Number(y.no));
   const rows = studs.map((st) => { const ctx = stuCtx(st); return { st, b: computeBadges(ctx), stat: computeStats(ctx) }; });
@@ -182,8 +189,8 @@ function vBadges(m) {
   const unl = (stat) => cats.reduce((x, c) => x + c[1].filter((it) => isUnlocked(it.req, stat)).length, 0);
   m.innerHTML = `<div class="row between"><h2>🏅 Rozetler ve ödüller</h2>${secSelect()}</div>
     <div class="card"><p class="small" style="margin:0">Rozetler ve avatar eşyaları <b>toplam ilerlemeye</b> göre açılır: seviye (toplam XP), ödev sayısı, 100'ler, kelime oyunları, ders içi artılar, ödev serisi, tekrar kutusu ve tatil ödevleri. Açılan bir şey bir daha kilitlenmez. Haftalık XP yalnızca podyum için sayılır.<br><span class="muted">Serbest olanlar: ${AV_BASES.length} karakter, ${AV_BGS.length} arka plan ve birkaç başlangıç eşyası. Kilitli: ${totalLocked} eşya, ${B.length} rozet.</span></p></div>
-    <div class="card"><h3>👥 Öğrenciler <span class="small muted">(rozetin üstüne gelince adı görünür)</span></h3><div class="tbl-wrap"><table class="tbl"><tr><th>No</th><th>Ad Soyad</th><th class="c">Lv</th><th class="c">Rozet</th><th class="c">Eşya</th>${B.map((b) => `<th class="c" title="${esc(b.n)}: ${esc(b.d)}">${b.e}</th>`).join("")}</tr>
-      ${rows.sort((x, y) => y.stat.badges - x.stat.badges).map((r) => `<tr><td>${r.st.section}·${r.st.no}</td><td style="white-space:nowrap">${avatarHtml(profiles[r.st.uid] || defaultAvatar(r.st.uid), 26)} ${esc(r.st.name)}</td><td class="c">${r.stat.lv}</td><td class="c"><b>${r.stat.badges}</b>/${B.length}</td><td class="c">${unl(r.stat)}/${totalLocked}</td>${r.b.map((b) => `<td class="c" title="${esc(b.n)}">${b.on ? b.e : '<span style="opacity:.18">·</span>'}</td>`).join("")}</tr>`).join("")}</table></div></div>
+    <div class="card"><h3>👥 Öğrenciler <span class="small muted">(rozetin üstüne gelince adı görünür)</span></h3><div class="tbl-wrap"><table class="tbl"><tr><th>No</th><th>Ad Soyad</th><th class="c">Lv</th><th class="c">Rozet</th><th class="c">🪙 Altın</th><th class="c">🔥 Seri</th><th>🐣 Hayvan</th><th class="c">📒 Albüm</th><th class="c">Eşya</th>${B.map((b) => `<th class="c" title="${esc(b.n)}: ${esc(b.d)}">${b.e}</th>`).join("")}</tr>
+      ${rows.sort((x, y) => y.stat.badges - x.stat.badges).map((r) => `<tr><td>${r.st.section}·${r.st.no}</td><td style="white-space:nowrap">${avatarHtml(profiles[r.st.uid] || defaultAvatar(r.st.uid), 26)} ${esc(r.st.name)}</td><td class="c">${r.stat.lv}</td><td class="c"><b>${r.stat.badges}</b>/${B.length}</td>${funCells(r)}<td class="c">${unl(r.stat)}/${totalLocked}</td>${r.b.map((b) => `<td class="c" title="${esc(b.n)}">${b.on ? b.e : '<span style="opacity:.18">·</span>'}</td>`).join("")}</tr>`).join("")}</table></div></div>
     <div class="card"><h3>🏅 Rozetler (${B.length})</h3><div class="tbl-wrap"><table class="tbl"><tr><th></th><th>Rozet</th><th>Nasıl kazanılır?</th><th class="c">Kazanan</th></tr>
       ${B.map((b, i) => { const who = rows.filter((r) => r.b[i].on); return `<tr><td style="font-size:22px">${b.e}</td><td><b>${esc(b.n)}</b></td><td class="small">${esc(b.d)}</td><td class="c" title="${esc(who.map((r) => r.st.name).join(", "))}"><b>${who.length}</b>/${rows.length}</td></tr>`; }).join("")}</table></div></div>
     ${cats.map(([t, list]) => `<div class="card"><h3>${t} <span class="small muted">(${list.length} kilitli)</span></h3><div class="tbl-wrap"><table class="tbl"><tr><th></th><th>Ad</th><th>Nasıl açılır?</th><th class="c">Açan</th></tr>

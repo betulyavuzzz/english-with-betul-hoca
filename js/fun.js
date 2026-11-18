@@ -1,5 +1,5 @@
 // Oyun dünyası: altın, günlük seri, haftalık görevler, evcil hayvan, kelime albümü
-import { dayKey, weekStart, weekKey } from "./game.js?v=28";
+import { dayKey, weekStart, weekKey } from "./game.js?v=29";
 
 const DAY = 86400000;
 const keyToDate = (k) => new Date(k + "T12:00:00");
