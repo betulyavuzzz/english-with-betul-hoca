@@ -1,14 +1,14 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=26";
-import { SITE } from "./config.js?v=26";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=26";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=26";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=26";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=26";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=26";
-import { SEED_WORDSETS } from "./seed.js?v=26";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=26";
-import { computeBadges, computeStats } from "./badges.js?v=26";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong } from "./game.js?v=26";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=27";
+import { SITE } from "./config.js?v=27";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=27";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=27";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=27";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=27";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=27";
+import { SEED_WORDSETS } from "./seed.js?v=27";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=27";
+import { computeBadges, computeStats } from "./badges.js?v=27";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong } from "./game.js?v=27";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -177,7 +177,7 @@ function vBadges(m) {
   const B = computeBadges({ assignments: [], subs: {}, points: [], feedback: [], practice: null });
   const cats = [["🐾 Karakterler", LOCKED_BASES.map((x) => ({ ...x, show: x.e }))], ["🎨 Arka planlar", LOCKED_BGS.map((x) => ({ ...x, show: `<span style="display:inline-block;width:22px;height:22px;border-radius:50%;vertical-align:middle;background:linear-gradient(135deg,${x.c[0]},${x.c[1]})"></span>` }))],
     ["🎩 Şapka / takı", AV_ACCS.filter((x) => Object.keys(x.req || {}).length).map((x) => ({ ...x, show: x.e }))], ["🎒 Yan eşyalar", AV_SIDES.filter((x) => Object.keys(x.req || {}).length).map((x) => ({ ...x, show: x.e }))],
-    ["✨ Çerçeveler", AV_FRAMES.filter((x) => Object.keys(x.req || {}).length).map((x) => ({ ...x, show: "⭕" }))]];
+    ["✨ Çerçeveler", AV_FRAMES.filter((x) => Object.keys(x.req || {}).length).map((x) => ({ ...x, show: `<span style="display:inline-block;padding:8px 10px">${avatarHtml({ base: "🦊", bg: 3, frame: x.id }, 34)}</span>` }))]];
   const totalLocked = cats.reduce((x, c) => x + c[1].length, 0);
   const unl = (stat) => cats.reduce((x, c) => x + c[1].filter((it) => isUnlocked(it.req, stat)).length, 0);
   m.innerHTML = `<div class="row between"><h2>🏅 Rozetler ve ödüller</h2>${secSelect()}</div>

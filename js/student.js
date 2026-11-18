@@ -1,11 +1,11 @@
-import { api, isDemo, friendlyError } from "./api.js?v=26";
-import { SITE } from "./config.js?v=26";
-import { SKILLS } from "./defaults.js?v=26";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=26";
-import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=26";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP } from "./game.js?v=26";
-import { computeBadges, computeStats } from "./badges.js?v=26";
-import { wordsHome } from "./words.js?v=26";
+import { api, isDemo, friendlyError } from "./api.js?v=27";
+import { SITE } from "./config.js?v=27";
+import { SKILLS } from "./defaults.js?v=27";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=27";
+import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=27";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP } from "./game.js?v=27";
+import { computeBadges, computeStats } from "./badges.js?v=27";
+import { wordsHome } from "./words.js?v=27";
 
 const app = $("#app");
 let settings = null;
