@@ -1,13 +1,13 @@
-import { api, isDemo, friendlyError } from "./api.js?v=32";
-import { SITE } from "./config.js?v=32";
-import { SKILLS } from "./defaults.js?v=32";
-import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=32";
-import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=32";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP, SHOP } from "./game.js?v=32";
-import { computeBadges, computeStats } from "./badges.js?v=32";
-import { streakInfo, goldInfo, weeklyQuests, QUEST_GOLD, QUEST_BONUS, petInfo, PET_SPECIES, PET_FOOD, albumSet, wordKey } from "./fun.js?v=32";
-import { petSVG, PET_TYPES } from "./petart.js?v=32";
-import { wordsHome } from "./words.js?v=32";
+import { api, isDemo, friendlyError } from "./api.js?v=33";
+import { SITE } from "./config.js?v=33";
+import { SKILLS } from "./defaults.js?v=33";
+import { $, $$, esc, toast, fmtDate, pctClass } from "./ui.js?v=33";
+import { play, computeResult, itemSummary, answerText, correctText, scoreItem, autoWritePoints } from "./player.js?v=33";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqShort, reqLong, avatarHtml, defaultAvatar, computeXP, LEVELS, dayKey, GAME_DAILY_XP_LIMIT, QUIZ_MIN_CORRECT, QUIZ_MIN_MS, MEMORY_MIN_STARS, weeklyEntry, weekKey, weekLabel, podiumHtml, BOX_XP, SHOP } from "./game.js?v=33";
+import { computeBadges, computeStats } from "./badges.js?v=33";
+import { streakInfo, goldInfo, weeklyQuests, QUEST_GOLD, QUEST_BONUS, petInfo, PET_SPECIES, PET_FOOD, albumSet, wordKey } from "./fun.js?v=33";
+import { petSVG, PET_TYPES } from "./petart.js?v=33";
+import { wordsHome } from "./words.js?v=33";
 
 const app = $("#app");
 let settings = null;

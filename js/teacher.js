@@ -1,16 +1,16 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=32";
-import { SITE } from "./config.js?v=32";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=32";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=32";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=32";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=32";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=32";
-import { SEED_WORDSETS } from "./seed.js?v=32";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=32";
-import { computeBadges, computeStats } from "./badges.js?v=32";
-import { goldInfo, streakInfo, petInfo, albumSet } from "./fun.js?v=32";
-import { petSVG } from "./petart.js?v=32";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong, reqShort, SHOP } from "./game.js?v=32";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=33";
+import { SITE } from "./config.js?v=33";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=33";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=33";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=33";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=33";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=33";
+import { SEED_WORDSETS } from "./seed.js?v=33";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=33";
+import { computeBadges, computeStats } from "./badges.js?v=33";
+import { goldInfo, streakInfo, petInfo, albumSet } from "./fun.js?v=33";
+import { petSVG } from "./petart.js?v=33";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong, reqShort, SHOP } from "./game.js?v=33";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -79,7 +79,7 @@ function login(notTeacher) {
 }
 
 // ---------------------------------------------------------------- İskelet
-const NAV = [["home", "🏠", "Genel bakış"], ["last", "🎯", "Son ödev"], ["cls", "📱", "Sınıf modu"], ["wd", "🃏", "Kelimeler"], ["hw", "📝", "Ödevler"], ["res", "📊", "Sonuçlar"], ["fb", "💬", "Geri bildirim"], ["gb", "📒", "Not defteri"], ["kr", "📄", "Karneler"], ["bd", "🏅", "Rozetler"], ["st", "👥", "Öğrenciler"], ["set", "⚙️", "Ayarlar"]];
+const NAV = [["home", "🏠", "Genel bakış"], ["last", "🎯", "Son ödev"], ["cls", "📱", "Sınıf modu"], ["wd", "🃏", "Kelimeler"], ["hw", "📝", "Ödevler"], ["res", "📊", "Sonuçlar"], ["fb", "💬", "Geri bildirim"], ["gb", "📒", "Not defteri"], ["kr", "📄", "Karneler"], ["bd", "🏅", "Rozetler"], ["zoo", "🏞️", "Sınıf bahçesi"], ["st", "👥", "Öğrenciler"], ["set", "⚙️", "Ayarlar"]];
 function shell() {
   app.innerHTML = `<div class="tlayout"><nav class="side">
       <div class="gsel"><select id="gs">${(me.admin ? [5, 6, 7, 8] : myGrades()).map((g) => `<option value="${g}" ${g === grade ? "selected" : ""}>${g}. sınıflar${settings.activeGrades.includes(g) ? "" : " (kapalı)"}</option>`).join("")}</select></div>
@@ -92,7 +92,7 @@ function shell() {
 function draw() {
   $$(".side [data-v]").forEach((b) => b.classList.toggle("on", b.dataset.v === view));
   const m = $("#main");
-  ({ bd: vBadges, home: vHome, last: vLast, cls: vClass, wd: vWords, kr: vReports, hw: vHw, res: vRes, fb: vFb, gb: vGb, st: vSt, set: vSet })[view](m);
+  ({ zoo: vZoo, bd: vBadges, home: vHome, last: vLast, cls: vClass, wd: vWords, kr: vReports, hw: vHw, res: vRes, fb: vFb, gb: vGb, st: vSt, set: vSet })[view](m);
   window.scrollTo(0, 0);
 }
 const myKeys = () => (me.sections || []).map((k) => ({ g: Number(String(k).match(/^\d+/)?.[0]), s: String(k).replace(/^\d+-?/, "") }));
@@ -193,6 +193,38 @@ const dayKeyT = () => { const x = new Date(); return `${x.getFullYear()}-${Strin
 const petTxt = (P) => P.pet ? `${P.stage ? P.pet.sp : "🥚"} ${esc(P.pet.name || "")} ${P.mood.e}` : `<span class="muted small">—</span>`;
 const bar = (v, t, c = "#c9a227") => `<div class="meter" style="flex:1;min-width:60px"><span style="width:${Math.min(100, (v / t) * 100)}%;background:${c}"></span></div>`;
 
+function vZoo(m) {
+  const rows = bdRows();
+  const pets = rows.filter((r) => r.P.pet), none = rows.filter((r) => !r.P.pet);
+  const cnt = (k) => pets.filter((r) => r.P.mood.k === k).length;
+  const n = pets.length, cols = Math.max(3, Math.ceil(Math.sqrt(n * 1.8))), rws = Math.max(1, Math.ceil(n / cols));
+  let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  const order = [...pets].sort((a, b) => a.P.stage - b.P.stage);
+  m.innerHTML = `<div class="row between"><h2>🏞️ Sınıf bahçesi</h2><div class="row">${secSelect()}<button class="btn gold sm" id="zFull">⛶ Tahtada aç</button></div></div>
+    <div class="zoo" id="zoo">
+      <div class="zoo-top"><b>🏞️ ${grade}${secFilter ? "-" + esc(secFilter) : ""} Sınıf Bahçesi</b><span>😊 ${cnt("happy")} mutlu · 😐 ${cnt("hungry")} aç · 😢 ${cnt("sad")} üzgün</span></div>
+      <div class="zoo-sun">☀️</div><div class="zoo-cloud c1"></div><div class="zoo-cloud c2"></div>
+      <div class="zoo-deco">${Array.from({ length: 14 }, (_, i) => `<span style="left:${(i * 7.3 + rnd() * 4) % 98}%;bottom:${rnd() * 60}%;font-size:${18 + rnd() * 16}px">${["🌷", "🌼", "🌳", "🍄", "🌻", "🌿", "🪨"][i % 7]}</span>`).join("")}</div>
+      ${order.map((r, i) => { const c = i % cols, rw = Math.floor(i / cols);
+        const x = ((c + 0.5) / cols) * 100 + (rnd() - 0.5) * (60 / cols), y = 52 + ((rw + 0.5) / rws) * 44 + (rnd() - 0.5) * 4;
+        const dur = 6 + rnd() * 6, dist = 20 + rnd() * 40;
+        return `<div class="zpet" data-z="${r.st.uid}" style="left:${x}%;top:${y}%;z-index:${Math.round(y)};--d:${dur}s;--dx:${dist}px;animation-delay:-${rnd() * dur}s">
+          <div class="pet-stage pet-${r.P.mood.k}">${petSVG(r.P.pet.sp, r.P.stage, r.P.mood.k, Math.round((84 + r.P.stage * 12) * (n > 24 ? 0.75 : n > 14 ? 0.88 : 1)))}</div>
+          <div class="zname">${esc(r.st.name.split(" ")[0])}<small>${esc(r.P.pet.name || "")}</small></div></div>`; }).join("")}
+      ${!pets.length ? `<div class="zoo-empty">Henüz kimse hayvanını seçmedi 🥚<br><small>Öğrenciler 🌍 Dünyam → 🐣 Hayvanım bölümünden seçebilir.</small></div>` : ""}
+    </div>
+    ${none.length ? `<div class="card"><h3 style="margin:0">🥚 Hayvanı henüz olmayanlar (${none.length})</h3><div style="margin-top:8px">${none.map((r) => `<span class="badge" style="margin:3px">${esc(r.st.name)}</span>`).join("")}</div></div>` : ""}`;
+  bindSec(() => vZoo(m));
+  $("#zFull").onclick = () => { const z = $("#zoo"); (z.requestFullscreen || z.webkitRequestFullscreen || (() => {})).call(z)?.catch?.(() => {}); };
+  $$("[data-z]").forEach((el) => el.onclick = () => {
+    const r = rows.find((x) => x.st.uid === el.dataset.z); if (!r) return;
+    $$(".zbubble").forEach((b) => b.remove());
+    const b = document.createElement("div"); b.className = "zbubble";
+    b.innerHTML = `<b>${esc(r.st.name)}</b><br>${esc(r.P.pet.name)} · ${esc(r.P.stageName)} · ${r.P.mood.e} ${esc(r.P.mood.t)}<br><span class="small">Lv ${r.stat.lv} · 🏅 ${r.stat.badges} · 🔥 ${r.S.current} gün</span>`;
+    el.appendChild(b); const st = el.querySelector(".pet-stage"); st.classList.remove("tap"); void st.offsetWidth; st.classList.add("tap");
+    setTimeout(() => b.remove(), 3500);
+  });
+}
 function vBadges(m) {
   const rows = bdRows(), n = rows.length || 1;
   const B = computeBadges({ assignments: [], subs: {}, points: [], feedback: [], practice: null });
