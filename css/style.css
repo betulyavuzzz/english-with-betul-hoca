@@ -572,3 +572,5 @@ body.print-only #printArea { display: block; padding: 16px; background: #fff; mi
 @keyframes petHop{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}@keyframes petSad{0%,100%{transform:rotate(-4deg)}50%{transform:rotate(4deg)}}
 .shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}.shop-item{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px;border:2px solid #efe9da;border-radius:16px;text-align:center}.shop-item.own{background:#e3f6ec;border-color:#9bd8b6}
 .stickers{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:10px}.stk{display:flex;flex-direction:column;align-items:center;padding:10px 6px;border-radius:14px;background:#f1eee6;border:2px dashed #d9d2bf;color:#9a917a}.stk span{font-size:28px}.stk.on{background:#fff;border:2px solid var(--gold,#c9a227);color:var(--ink,#1b2236);box-shadow:0 3px 0 #e8d7a0;transform:rotate(-1.5deg)}.stk.on:nth-child(even){transform:rotate(1.5deg)}.stk small{font-size:12px;color:#64708a}
+
+tr.clk{cursor:pointer}tr.clk:hover td{background:#fff8e1}

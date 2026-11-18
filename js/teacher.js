@@ -1,15 +1,15 @@
-import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=29";
-import { SITE } from "./config.js?v=29";
-import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=29";
-import { SEED_ASSIGNMENTS } from "./seed.js?v=29";
-import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=29";
-import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=29";
-import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=29";
-import { SEED_WORDSETS } from "./seed.js?v=29";
-import { reportHtml, TERMS, currentTerm } from "./report.js?v=29";
-import { computeBadges, computeStats } from "./badges.js?v=29";
-import { goldInfo, streakInfo, petInfo, albumSet } from "./fun.js?v=29";
-import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong } from "./game.js?v=29";
+import { api, isDemo, friendlyError, studentKey as keyFn } from "./api.js?v=30";
+import { SITE } from "./config.js?v=30";
+import { ITEM_TYPES, SKILLS, COMMENT_TEMPLATES } from "./defaults.js?v=30";
+import { SEED_ASSIGNMENTS } from "./seed.js?v=30";
+import { $, $$, esc, toast, fmtDate, pctClass, modal, download } from "./ui.js?v=30";
+import { play, computeResult, itemSummary, answerText, correctText, itemPoints, autoWritePoints } from "./player.js?v=30";
+import { avatarHtml, defaultAvatar, POINT_REASONS, computeXP, weeklyXP, weekStart, weeklyEntry, podiumHtml, GAME_DAILY_XP_LIMIT } from "./game.js?v=30";
+import { SEED_WORDSETS } from "./seed.js?v=30";
+import { reportHtml, TERMS, currentTerm } from "./report.js?v=30";
+import { computeBadges, computeStats } from "./badges.js?v=30";
+import { goldInfo, streakInfo, petInfo, albumSet } from "./fun.js?v=30";
+import { AV_BASES, AV_BGS, AV_ACCS, AV_SIDES, AV_FRAMES, LOCKED_BASES, LOCKED_BGS, isUnlocked, reqLong, reqShort, SHOP } from "./game.js?v=30";
 
 const app = $("#app");
 let settings, grade, view = "home";
@@ -172,30 +172,116 @@ function stuCtx(st) {
   const subs = Object.fromEntries(submissions.filter((x) => x.uid === st.uid && as.some((a) => a.id === x.assignmentId)).map((x) => [x.assignmentId, x]));
   return { assignments: as, subs, points: points.filter((p) => p.uid === st.uid), feedback: feedback.filter((f) => f.uid === st.uid), practice: practices.find((p) => p.uid === st.uid) || null, profile: profFull[st.uid] || null, isStar: false };
 }
-function funCells(r) {
-  const ctx = stuCtx(r.st), pr = ctx.practice;
-  const G = goldInfo({ subs: ctx.subs, practice: pr, wordsets }), S = streakInfo(pr), P = petInfo({ subs: ctx.subs, practice: pr });
-  const pet = P.pet ? `<span title="${esc(P.stageName)} · ${esc(P.mood.t)}">${P.stage ? P.pet.sp : "🥚"} ${esc(P.pet.name || "")} ${P.mood.e}</span><br><span class="small muted">${esc(P.stageName)}</span>` : `<span class="muted small">yok</span>`;
-  return `<td class="c" title="Kazandığı ${G.earned} · harcadığı ${G.spent}"><b>${G.balance}</b><br><span class="small muted">${(pr?.owned || []).length} eşya aldı</span></td><td class="c">${S.current ? `<b>${S.current}</b> gün` : "–"}</td><td style="white-space:nowrap">${pet}</td><td class="c">${albumSet(pr).size}</td>`;
+// Rozet ilerleme hedefleri (öğrenci detayında çubuk göstermek için)
+const BADGE_GOAL = { "İlk Adım": ["hw", 1], "Çalışkan Arı": ["hw", 5], "Şampiyon": ["hw", 10], "Kitap Kurdu": ["hw", 20], "Kusursuz": ["perfect", 1], "Mükemmeliyetçi": ["perfect", 3],
+  "Kelime Avcısı": ["games", 10], "Hafıza Ustası": ["games", 25], "Hero": ["lv", 6], "Efsane": ["lv", 8], "Hata Avcısı": ["fix", 10], "Seri Ustası": ["streak", 5], "Holiday Hero": ["holiday", 4] };
+const ITEM_CATS = () => [["base", "🐾 Karakterler", LOCKED_BASES.map((x) => ({ ...x, show: x.e }))],
+  ["bg", "🎨 Arka planlar", LOCKED_BGS.map((x) => ({ ...x, show: `<span style="display:inline-block;width:24px;height:24px;border-radius:50%;vertical-align:middle;background:linear-gradient(135deg,${x.c[0]},${x.c[1]})"></span>` }))],
+  ["acc", "🎩 Şapka / takı", AV_ACCS.filter((x) => Object.keys(x.req || {}).length).map((x) => ({ ...x, show: x.e }))],
+  ["side", "🎒 Yan eşyalar", AV_SIDES.filter((x) => Object.keys(x.req || {}).length).map((x) => ({ ...x, show: x.e }))],
+  ["frame", "✨ Çerçeveler", AV_FRAMES.filter((x) => Object.keys(x.req || {}).length).map((x) => ({ ...x, show: `<span style="display:inline-block;padding:6px 8px">${avatarHtml({ base: "🦊", bg: 3, frame: x.id }, 30)}</span>` }))]];
+let bdTab = "st", bdSort = "badges", bdQ = "", bdCat = "all";
+function bdRows() {
+  return visStudents().map((st) => {
+    const ctx = stuCtx(st), pr = ctx.practice;
+    const b = computeBadges(ctx), stat = computeStats(ctx);
+    return { st, ctx, b, stat, G: goldInfo({ subs: ctx.subs, practice: pr, wordsets }), S: streakInfo(pr), P: petInfo({ subs: ctx.subs, practice: pr }), album: albumSet(pr).size, today: (pr?.days || []).includes(dayKeyT()) };
+  });
 }
+const dayKeyT = () => { const x = new Date(); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`; };
+const petTxt = (P) => P.pet ? `${P.stage ? P.pet.sp : "🥚"} ${esc(P.pet.name || "")} ${P.mood.e}` : `<span class="muted small">—</span>`;
+const bar = (v, t, c = "#c9a227") => `<div class="meter" style="flex:1;min-width:60px"><span style="width:${Math.min(100, (v / t) * 100)}%;background:${c}"></span></div>`;
+
 function vBadges(m) {
-  const studs = visStudents().sort((x, y) => String(x.section).localeCompare(y.section) || Number(x.no) - Number(y.no));
-  const rows = studs.map((st) => { const ctx = stuCtx(st); return { st, b: computeBadges(ctx), stat: computeStats(ctx) }; });
+  const rows = bdRows(), n = rows.length || 1;
   const B = computeBadges({ assignments: [], subs: {}, points: [], feedback: [], practice: null });
-  const cats = [["🐾 Karakterler", LOCKED_BASES.map((x) => ({ ...x, show: x.e }))], ["🎨 Arka planlar", LOCKED_BGS.map((x) => ({ ...x, show: `<span style="display:inline-block;width:22px;height:22px;border-radius:50%;vertical-align:middle;background:linear-gradient(135deg,${x.c[0]},${x.c[1]})"></span>` }))],
-    ["🎩 Şapka / takı", AV_ACCS.filter((x) => Object.keys(x.req || {}).length).map((x) => ({ ...x, show: x.e }))], ["🎒 Yan eşyalar", AV_SIDES.filter((x) => Object.keys(x.req || {}).length).map((x) => ({ ...x, show: x.e }))],
-    ["✨ Çerçeveler", AV_FRAMES.filter((x) => Object.keys(x.req || {}).length).map((x) => ({ ...x, show: `<span style="display:inline-block;padding:8px 10px">${avatarHtml({ base: "🦊", bg: 3, frame: x.id }, 34)}</span>` }))]];
-  const totalLocked = cats.reduce((x, c) => x + c[1].length, 0);
-  const unl = (stat) => cats.reduce((x, c) => x + c[1].filter((it) => isUnlocked(it.req, stat)).length, 0);
+  const cats = ITEM_CATS(), totalLocked = cats.reduce((x, c) => x + c[2].length, 0);
+  const unl = (stat) => cats.reduce((x, c) => x + c[2].filter((it) => isUnlocked(it.req, stat)).length, 0);
+  const sumB = rows.reduce((x, r) => x + r.stat.badges, 0);
+  const tabs = [["st", "👥 Öğrenciler"], ["bd", "🏅 Rozetler"], ["it", "🎒 Eşyalar"], ["fl", "📣 Takip"]];
   m.innerHTML = `<div class="row between"><h2>🏅 Rozetler ve ödüller</h2>${secSelect()}</div>
-    <div class="card"><p class="small" style="margin:0">Rozetler ve avatar eşyaları <b>toplam ilerlemeye</b> göre açılır: seviye (toplam XP), ödev sayısı, 100'ler, kelime oyunları, ders içi artılar, ödev serisi, tekrar kutusu ve tatil ödevleri. Açılan bir şey bir daha kilitlenmez. Haftalık XP yalnızca podyum için sayılır.<br><span class="muted">Serbest olanlar: ${AV_BASES.length} karakter, ${AV_BGS.length} arka plan ve birkaç başlangıç eşyası. Kilitli: ${totalLocked} eşya, ${B.length} rozet.</span></p></div>
-    <div class="card"><h3>👥 Öğrenciler <span class="small muted">(rozetin üstüne gelince adı görünür)</span></h3><div class="tbl-wrap"><table class="tbl"><tr><th>No</th><th>Ad Soyad</th><th class="c">Lv</th><th class="c">Rozet</th><th class="c">🪙 Altın</th><th class="c">🔥 Seri</th><th>🐣 Hayvan</th><th class="c">📒 Albüm</th><th class="c">Eşya</th>${B.map((b) => `<th class="c" title="${esc(b.n)}: ${esc(b.d)}">${b.e}</th>`).join("")}</tr>
-      ${rows.sort((x, y) => y.stat.badges - x.stat.badges).map((r) => `<tr><td>${r.st.section}·${r.st.no}</td><td style="white-space:nowrap">${avatarHtml(profiles[r.st.uid] || defaultAvatar(r.st.uid), 26)} ${esc(r.st.name)}</td><td class="c">${r.stat.lv}</td><td class="c"><b>${r.stat.badges}</b>/${B.length}</td>${funCells(r)}<td class="c">${unl(r.stat)}/${totalLocked}</td>${r.b.map((b) => `<td class="c" title="${esc(b.n)}">${b.on ? b.e : '<span style="opacity:.18">·</span>'}</td>`).join("")}</tr>`).join("")}</table></div></div>
-    <div class="card"><h3>🏅 Rozetler (${B.length})</h3><div class="tbl-wrap"><table class="tbl"><tr><th></th><th>Rozet</th><th>Nasıl kazanılır?</th><th class="c">Kazanan</th></tr>
-      ${B.map((b, i) => { const who = rows.filter((r) => r.b[i].on); return `<tr><td style="font-size:22px">${b.e}</td><td><b>${esc(b.n)}</b></td><td class="small">${esc(b.d)}</td><td class="c" title="${esc(who.map((r) => r.st.name).join(", "))}"><b>${who.length}</b>/${rows.length}</td></tr>`; }).join("")}</table></div></div>
-    ${cats.map(([t, list]) => `<div class="card"><h3>${t} <span class="small muted">(${list.length} kilitli)</span></h3><div class="tbl-wrap"><table class="tbl"><tr><th></th><th>Ad</th><th>Nasıl açılır?</th><th class="c">Açan</th></tr>
-      ${list.map((it) => `<tr><td style="font-size:22px">${it.show}</td><td>${esc(it.n)}</td><td class="small">${esc(reqLong(it.req))}</td><td class="c"><b>${rows.filter((r) => isUnlocked(it.req, r.stat)).length}</b>/${rows.length}</td></tr>`).join("")}</table></div></div>`).join("")}`;
+    <div class="kpis">
+      <div class="kpi"><b>${avgN(rows.map((r) => r.stat.lv)) ?? "–"}</b><span>ort. seviye</span></div>
+      <div class="kpi"><b>${(sumB / n).toFixed(1)}</b><span>öğrenci başı rozet (/${B.length})</span></div>
+      <div class="kpi"><b>${rows.filter((r) => r.today).length}</b><span>bugün siteye giren</span></div>
+      <div class="kpi"><b>${rows.filter((r) => r.P.pet).length}</b><span>hayvanı olan</span></div>
+      <div class="kpi"><b>${rows.reduce((x, r) => x + r.G.spent, 0)}</b><span>harcanan 🪙</span></div>
+    </div>
+    <div class="fun-tabs">${tabs.map(([k, t]) => `<button class="ftab ${bdTab === k ? "on" : ""}" data-bt="${k}">${t}</button>`).join("")}</div>
+    <div id="bdBody"></div>`;
+  const body = $("#bdBody");
+  const draw = () => {
+    if (bdTab === "st") {
+      const sorters = { badges: (a, b) => b.stat.badges - a.stat.badges, lv: (a, b) => b.stat.lv - a.stat.lv, gold: (a, b) => b.G.balance - a.G.balance, streak: (a, b) => b.S.current - a.S.current, album: (a, b) => b.album - a.album, no: (a, b) => String(a.st.section).localeCompare(b.st.section) || Number(a.st.no) - Number(b.st.no), name: (a, b) => a.st.name.localeCompare(b.st.name, "tr") };
+      const list = rows.filter((r) => !bdQ || r.st.name.toLocaleLowerCase("tr").includes(bdQ.toLocaleLowerCase("tr")) || String(r.st.no) === bdQ).sort(sorters[bdSort]);
+      body.innerHTML = `<div class="card"><div class="row" style="gap:10px;flex-wrap:wrap;margin-bottom:10px"><input id="bdQ" placeholder="🔎 İsim ya da numara ara" value="${esc(bdQ)}" style="flex:1;min-width:180px">
+        <select id="bdS" style="width:auto">${[["badges", "Rozete göre"], ["lv", "Seviyeye göre"], ["gold", "Altına göre"], ["streak", "Seriye göre"], ["album", "Albüme göre"], ["no", "Numaraya göre"], ["name", "İsme göre"]].map(([v, t]) => `<option value="${v}" ${bdSort === v ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+        <p class="small muted" style="margin:0 0 8px">Satıra dokununca öğrencinin ayrıntılı kartı açılır.</p>
+        <div class="tbl-wrap"><table class="tbl"><tr><th>No</th><th>Öğrenci</th><th class="c">Lv</th><th class="c">🏅</th><th class="c">🪙</th><th class="c">🔥</th><th>🐣</th><th class="c">📒</th><th>Kazandığı rozetler</th></tr>
+        ${list.map((r) => `<tr class="clk" data-stu="${r.st.uid}"><td>${r.st.section}·${r.st.no}</td><td style="white-space:nowrap">${avatarHtml(profiles[r.st.uid] || defaultAvatar(r.st.uid), 28)} <b>${esc(r.st.name)}</b>${r.today ? ' <span title="Bugün girdi">🟢</span>' : ""}</td><td class="c">${r.stat.lv}</td><td class="c"><b>${r.stat.badges}</b></td><td class="c">${r.G.balance}</td><td class="c">${r.S.current || "–"}</td><td style="white-space:nowrap">${petTxt(r.P)}</td><td class="c">${r.album}</td>
+          <td style="font-size:18px;letter-spacing:2px">${r.b.filter((x) => x.on).map((x) => `<span title="${esc(x.n)}">${x.e}</span>`).join("") || '<span class="muted small">henüz yok</span>'}</td></tr>`).join("")}</table></div></div>`;
+      const q = $("#bdQ"); q.oninput = () => { bdQ = q.value; const pos = q.selectionStart; draw(); const q2 = $("#bdQ"); q2.focus(); q2.setSelectionRange(pos, pos); };
+      $("#bdS").onchange = (e) => { bdSort = e.target.value; draw(); };
+      $$("[data-stu]").forEach((tr) => tr.onclick = () => stuCard(rows.find((r) => r.st.uid === tr.dataset.stu), cats));
+    }
+    if (bdTab === "bd") {
+      body.innerHTML = `<div class="grid">${B.map((b, i) => { const who = rows.filter((r) => r.b[i].on); const g = BADGE_GOAL[b.n];
+        const near = g && g[1] > 1 ? rows.filter((r) => !r.b[i].on && r.stat[g[0]] >= g[1] - Math.max(1, Math.ceil(g[1] / 5))) : [];
+        return `<div class="card" style="border-left:6px solid ${b.c}"><div class="row" style="gap:12px;flex-wrap:nowrap"><span style="font-size:36px">${b.e}</span><div style="flex:1"><b>${esc(b.n)}</b><div class="small muted">${esc(b.d)}</div></div><b>${who.length}/${rows.length}</b></div>
+          <div style="margin:8px 0">${bar(who.length, n, b.c)}</div>
+          ${who.length ? `<div class="small">✅ ${who.map((r) => esc(r.st.name.split(" ")[0])).join(", ")}</div>` : `<div class="small muted">Henüz kazanan yok</div>`}
+          ${near.length ? `<div class="small" style="margin-top:4px">⏳ Az kaldı: ${near.map((r) => `${esc(r.st.name.split(" ")[0])} (${r.stat[g[0]]}/${g[1]})`).join(", ")}</div>` : ""}</div>`; }).join("")}</div>`;
+    }
+    if (bdTab === "it") {
+      const list = cats.filter((c) => bdCat === "all" || c[0] === bdCat);
+      body.innerHTML = `<div class="card"><div class="row between"><p class="small" style="margin:0">Kilitli <b>${totalLocked}</b> eşya. Serbest: ${AV_BASES.length} karakter, ${AV_BGS.length} arka plan. 🛒 işaretliler sadece mağazadan altınla alınır.</p>
+        <select id="bdC" style="width:auto"><option value="all">Hepsi</option>${cats.map((c) => `<option value="${c[0]}" ${bdCat === c[0] ? "selected" : ""}>${c[1]}</option>`).join("")}</select></div></div>
+        ${list.map(([k, t, items]) => `<div class="card"><h3>${t} <span class="small muted">(${items.length})</span></h3><div class="shop-grid">${items.map((it) => { const c = rows.filter((r) => isUnlocked(it.req, r.stat)).length; const shop = !!it.req?.shop;
+          return `<div class="shop-item ${c ? "own" : ""}" title="${esc(reqLong(it.req))}"><span style="font-size:34px">${it.show}</span><b class="small">${esc(it.n)}</b><span class="small muted">${shop ? "🛒 " : ""}${esc(reqShort(it.req))}</span><span class="small"><b>${c}</b>/${rows.length} açtı</span></div>`; }).join("")}</div></div>`).join("")}`;
+      $("#bdC").onchange = (e) => { bdCat = e.target.value; draw(); };
+    }
+    if (bdTab === "fl") {
+      const ws = (() => { const x = new Date(); const d = (x.getDay() + 6) % 7; x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - d); return x; })();
+      const ywk = (r) => (r.ctx.practice?.days || []).some((k) => new Date(k + "T12:00:00") >= ws) || Object.values(r.ctx.subs).some((s) => s.submittedAt >= ws.getTime());
+      const away = rows.filter((r) => !ywk(r)), hungry = rows.filter((r) => r.P.pet && r.P.mood.e === "😢"), noPet = rows.filter((r) => !r.P.pet);
+      const close = rows.map((r) => ({ r, list: B.map((b, i) => ({ b, i, g: BADGE_GOAL[b.n] })).filter((x) => x.g && x.g[1] > 1 && !r.b[x.i].on && r.stat[x.g[0]] >= x.g[1] - 1) })).filter((x) => x.list.length);
+      const block = (id, title, desc, arr, fmt, msg) => `<div class="card"><div class="row between"><h3 style="margin:0">${title} (${arr.length})</h3>${arr.length ? `<span class="row"><button class="btn ghost sm" data-cp="${id}">📋 Kopyala</button><button class="btn ghost sm" data-wa="${id}">📲 WhatsApp</button></span>` : ""}</div>
+        <p class="small muted" style="margin:4px 0 8px">${desc}</p><div>${arr.length ? arr.map(fmt).join("") : "Kimse yok 🎉"}</div></div>`;
+      const msgs = {
+        away: `👋 Seni bu hafta sitede göremedik! Ödevlerin ve evcil hayvanın seni bekliyor 🐣\n` + away.map((r) => `• ${r.st.name}`).join("\n") + `\n🔗 ${siteUrl()}`,
+        hungry: `😢 Evcil hayvanları acıkmış olanlar, onları beslemeyi unutmayın! 🍎\n` + hungry.map((r) => `• ${r.st.name} (${r.P.pet.name})`).join("\n") + `\n🔗 ${siteUrl()}`,
+        close: `🏅 Rozete çok az kalanlar! Bir adım daha 💪\n` + close.map((x) => `• ${x.r.st.name}: ${x.list.map((y) => y.b.e + " " + y.b.n).join(", ")}`).join("\n") + `\n🔗 ${siteUrl()}`
+      };
+      body.innerHTML = block("away", "💤 Bu hafta hiç girmeyenler", "Bu hafta siteye girmemiş ve ödev göndermemiş öğrenciler.", away, (r) => `<span class="badge" style="margin:3px">${r.st.section}·${r.st.no} ${esc(r.st.name)}</span>`, msgs.away)
+        + block("close", "🏅 Rozete 1 adım kalanlar", "Bir ödev, bir oyun ya da bir düzeltmeyle rozet kazanacak öğrenciler. Derste hatırlatın!", close, (x) => `<div class="small" style="margin:4px 0"><b>${esc(x.r.st.name)}</b>: ${x.list.map((y) => `${y.b.e} ${esc(y.b.n)} <span class="muted">(${x.r.stat[y.g[0]]}/${y.g[1]})</span>`).join(" · ")}</div>`, msgs.close)
+        + block("hungry", "😢 Hayvanı aç olanlar", "3 günden fazla beslenmemiş hayvanlar.", hungry, (r) => `<span class="badge" style="margin:3px">${petTxt(r.P)} · ${esc(r.st.name)}</span>`, msgs.hungry)
+        + `<div class="card"><h3 style="margin:0">🥚 Hayvanını henüz seçmeyenler (${noPet.length})</h3><div style="margin-top:8px">${noPet.map((r) => `<span class="badge" style="margin:3px">${esc(r.st.name)}</span>`).join("") || "Herkes seçti 🎉"}</div></div>`;
+      $$("[data-cp]").forEach((b) => b.onclick = () => { navigator.clipboard?.writeText(msgs[b.dataset.cp]); toast("Kopyalandı", "ok"); });
+      $$("[data-wa]").forEach((b) => b.onclick = () => window.open("https://wa.me/?text=" + encodeURIComponent(msgs[b.dataset.wa]), "_blank"));
+    }
+  };
+  $$("[data-bt]").forEach((b) => b.onclick = () => { bdTab = b.dataset.bt; $$("[data-bt]").forEach((x) => x.classList.toggle("on", x === b)); draw(); });
   bindSec(() => vBadges(m));
+  draw();
+}
+const avgN = (a) => (a.length ? (a.reduce((x, y) => x + y, 0) / a.length).toFixed(1) : null);
+function stuCard(r, cats) {
+  const st = r.stat, G = r.G, P = r.P;
+  const goals = r.b.filter((b) => !b.on && BADGE_GOAL[b.n]).map((b) => { const [k, t] = BADGE_GOAL[b.n]; return { b, v: st[k] || 0, t }; }).sort((x, y) => y.v / y.t - x.v / x.t);
+  const items = cats.flatMap((c) => c[2]).filter((it) => !isUnlocked(it.req, st) && !it.req?.shop).map((it) => { const [k, t] = Object.entries(it.req)[0] || []; return { it, v: st[k] || 0, t, k }; }).filter((x) => typeof x.t === "number").sort((x, y) => y.v / y.t - x.v / x.t).slice(0, 4);
+  const lbl = { hw: "ödev", fix: "düzeltme", games: "oyun", days: "giriş", quests: "görev", album: "albüm" };
+  modal(`<div class="row" style="gap:16px;flex-wrap:nowrap">${avatarHtml(profiles[r.st.uid] || defaultAvatar(r.st.uid), 84, st.lv)}<div><h2 style="margin:0">${esc(r.st.name)}</h2><p class="muted" style="margin:2px 0 0">${grade}-${esc(r.st.section)} · No ${esc(r.st.no)} · Lv ${st.lv} · ${st.badges}/${r.b.length} rozet</p></div></div>
+    <div class="kpis" style="margin-top:12px">
+      <div class="kpi"><b>🪙 ${G.balance}</b><span>altın (harcadı ${G.spent})</span></div>
+      <div class="kpi"><b>🔥 ${r.S.current}</b><span>gün seri</span></div>
+      <div class="kpi"><b>📒 ${r.album}</b><span>albüm kelimesi</span></div>
+      <div class="kpi"><b>${P.pet ? (P.stage ? P.pet.sp : "🥚") : "—"}</b><span>${P.pet ? `${esc(P.pet.name)} · ${esc(P.stageName)} ${P.mood.e}` : "hayvan yok"}</span></div>
+    </div>
+    <p class="small muted">Altın kaynakları: ${Object.entries(G.parts).map(([k, v]) => `${lbl[k] || k} ${v}`).join(" · ")}</p>
+    <h3>🏅 Kazandığı rozetler</h3><div style="font-size:15px">${r.b.filter((b) => b.on).map((b) => `<span class="badge" style="margin:3px;background:${b.c}22">${b.e} ${esc(b.n)}</span>`).join("") || '<span class="muted">Henüz yok</span>'}</div>
+    <h3>⏳ Sıradaki rozetler</h3>${goals.slice(0, 5).map((g) => `<div class="row" style="gap:10px;margin:6px 0;flex-wrap:nowrap"><span style="width:26px">${g.b.e}</span><span class="small" style="width:150px">${esc(g.b.n)}</span>${bar(g.v, g.t, g.b.c)}<b class="small">${g.v}/${g.t}</b></div>`).join("") || '<p class="muted small">Hepsini kazandı!</p>'}
+    <h3>🎁 Açmaya en yakın eşyalar</h3>${items.map((x) => `<div class="row" style="gap:10px;margin:6px 0;flex-wrap:nowrap"><span style="width:40px;font-size:22px">${x.it.show}</span><span class="small" style="width:140px">${esc(x.it.n)}</span>${bar(x.v, x.t)}<span class="small">${esc(reqShort(x.it.req))}</span></div>`).join("") || '<p class="muted small">—</p>'}
+    ${(r.ctx.practice?.owned || []).length ? `<h3>🛒 Mağazadan aldıkları</h3><p>${(r.ctx.practice.owned).map((id) => { const x = SHOP.find((y) => y.id === id); return x ? `<span class="badge" style="margin:3px">${x.e || "🎨"} ${esc(x.n)}</span>` : ""; }).join("")}</p>` : ""}`, { wide: true });
 }
 
 // ---------------------------------------------------------------- Genel bakış
